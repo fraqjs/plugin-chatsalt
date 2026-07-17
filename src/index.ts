@@ -1,4 +1,4 @@
-import { definePlugin, msg } from '@fraqjs/fraq';
+import { definePlugin, msg, seg } from '@fraqjs/fraq';
 import { AiService, xmlifyThread } from '@fraqjs/plugin-ai';
 import { KyselyService } from '@fraqjs/plugin-kysely';
 import { generateText, stepCountIs } from 'ai';
@@ -71,13 +71,13 @@ export const ChatsaltPlugin = definePlugin({
         case 'friend':
           await ctx.client.send_private_message({
             user_id: data.sender_id,
-            message: msg`${text}`,
+            message: msg`${seg.reply(data.message_seq)}${text}`,
           });
           break;
         case 'group':
           await ctx.client.send_group_message({
             group_id: data.peer_id,
-            message: msg`${text}`,
+            message: msg`${seg.reply(data.message_seq)}${text}`,
           });
           break;
       }
