@@ -50,6 +50,7 @@ export const ChatsaltPlugin = definePlugin({
           senderId: data.sender_id,
           senderName: extractSenderName(data),
           persona: options.persona,
+          extraPrompt: options.extraPrompt,
         }),
         prompt: buildPrompt({
           thread: thread.xmlContent,
