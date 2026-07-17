@@ -3,3 +3,5 @@ dist/
 .npmrc
 .DS_Store/
 .idea/
+fraq.db
+.env

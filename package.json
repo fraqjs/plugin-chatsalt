@@ -1,8 +1,8 @@
 {
-  "name": "fraq-plugin-template_change-me!",
+  "name": "fraq-plugin-chatsalt",
   "type": "module",
   "version": "0.1.0",
-  "description": "CHANGE ME",
+  "description": "General AI chat plugin",
   "files": [
     "dist"
   ],
@@ -16,19 +16,31 @@
   "author": "Your Name Here",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/your-username/your-repo.git"
+    "url": "git+https://github.com/fraqjs/plugin-chatsalt.git"
   },
   "license": "MIT",
   "packageManager": "pnpm@11.9.0",
   "devDependencies": {
+    "@ai-sdk/deepseek": "^3.0.11",
     "@biomejs/biome": "^2.5.1",
     "@fraqjs/mock": "^0.1.0",
+    "@fraqjs/plugin-ai": "^0.5.0",
+    "@fraqjs/plugin-kysely": "^0.2.0",
+    "@fraqjs/plugin-message-store": "^0.1.0",
     "@types/node": "^24.13.2",
+    "ai": "^7.0.29",
+    "dotenv": "^17.4.2",
     "tsdown": "^0.22.2",
     "tsx": "^4.22.4",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "zod": "^4.4.3"
   },
   "peerDependencies": {
-    "@fraqjs/fraq": "^0.13.3"
+    "@ai-sdk/openai-compatible": "^3.0.11",
+    "@fraqjs/fraq": "^0.13.3",
+    "@fraqjs/plugin-ai": "^0.5.0",
+    "@fraqjs/plugin-kysely": "^0.2.0",
+    "ai": "^7.0.29",
+    "zod": "^4.4.3"
   }
 }
