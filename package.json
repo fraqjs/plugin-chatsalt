@@ -1,0 +1,34 @@
+{
+  "name": "fraq-plugin-template_change-me!",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "CHANGE ME",
+  "files": [
+    "dist"
+  ],
+  "main": "dist/index.mjs",
+  "typings": "dist/index.d.mts",
+  "scripts": {
+    "build": "tsdown",
+    "prepack": "pnpm build"
+  },
+  "keywords": [],
+  "author": "Your Name Here",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/your-username/your-repo.git"
+  },
+  "license": "MIT",
+  "packageManager": "pnpm@11.9.0",
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.1",
+    "@fraqjs/mock": "^0.1.0",
+    "@types/node": "^24.13.2",
+    "tsdown": "^0.22.2",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3"
+  },
+  "peerDependencies": {
+    "@fraqjs/fraq": "^0.13.3"
+  }
+}
