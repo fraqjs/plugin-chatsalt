@@ -62,7 +62,7 @@ export const ChatsaltPlugin = definePlugin({
         stopWhen: stepCountIs(maxToolSteps)
       });
 
-      if (text.startsWith('<no_reply>')) {
+      if (text.startsWith('no_reply')) {
         ctx.logger.warn(`Rejected message from ${data.sender_id} in ${data.message_scene} ${data.peer_id}: ${text}`);
         return;
       }
