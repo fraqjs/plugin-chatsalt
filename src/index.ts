@@ -26,7 +26,7 @@ export const ChatsaltPlugin = definePlugin({
   apply(ctx, options: ChatsaltPluginOptions) {
     ctx.on('message_receive', async ({ self_id, data }) => {
       const contextSize = options.contextSize ?? 20;
-      const temperature = options.temperature ?? 0.7;
+      const temperature = options.temperature ?? 0.8;
       const maxToolSteps = options.maxToolSteps ?? 10;
 
       const visionModel = ctx.ai.model(options.visionModel ?? options.chatModel);
@@ -60,6 +60,11 @@ export const ChatsaltPlugin = definePlugin({
         temperature: temperature,
         stopWhen: stepCountIs(maxToolSteps)
       });
+
+      if (text.startsWith('<no_reply>')) {
+        ctx.logger.warn(`Rejected message from ${data.sender_id} in ${data.message_scene} ${data.peer_id}: ${text}`);
+        return;
+      }
 
       switch (data.message_scene) {
         case 'friend':
