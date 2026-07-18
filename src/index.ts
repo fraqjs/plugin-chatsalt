@@ -9,12 +9,14 @@ import { shouldTriggerChat } from './trigger';
 
 export interface ChatsaltPluginOptions {
   persona: string;
+  chatModel?: string;
+  visionModel?: string;
+
   contextSize?: number;
   temperature?: number;
   maxToolSteps?: number;
-  chatModel?: string;
-  visionModel?: string;
   extraPrompt?: string;
+
   debug?: {
     respondRejectedMessages?: boolean;
   };
@@ -28,13 +30,14 @@ export const ChatsaltPlugin = definePlugin({
   },
   apply(ctx, options: ChatsaltPluginOptions) {
     ctx.on('message_receive', async ({ self_id, data }) => {
+      const chatModel = ctx.ai.model(options.chatModel);
+      const visionModel = ctx.ai.model(options.visionModel ?? options.chatModel);
+
       const contextSize = options.contextSize ?? 20;
       const temperature = options.temperature ?? 0.8;
       const maxToolSteps = options.maxToolSteps ?? 10;
 
       const debug_respondRejectedMessages = options.debug?.respondRejectedMessages ?? false;
-
-      const visionModel = ctx.ai.model(options.visionModel ?? options.chatModel);
 
       if (!shouldTriggerChat(self_id, data)) {
         return;
@@ -48,7 +51,7 @@ export const ChatsaltPlugin = definePlugin({
       const thread = await xmlifyThread(ctx, messages);
 
       const { text } = await generateText({
-        model: ctx.ai.model(options.chatModel),
+        model: chatModel,
         system: buildSystemPrompt({
           selfId: self_id,
           scene: data.message_scene as 'friend' | 'group',
