@@ -131,6 +131,7 @@ export class MemoryStore {
     const overflow = await this.scopeQuery(scope)
       .select('id')
       .orderBy('created_at', 'desc')
+      .limit(-1)
       .offset(maxScopeCount)
       .execute();
 
