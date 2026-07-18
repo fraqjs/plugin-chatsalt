@@ -21,7 +21,7 @@
   "license": "MIT",
   "packageManager": "pnpm@11.9.0",
   "devDependencies": {
-    "@ai-sdk/deepseek": "^3.0.11",
+    "@ai-sdk/openai-compatible": "^3.0.11",
     "@biomejs/biome": "^2.5.1",
     "@fraqjs/mock": "^0.1.0",
     "@fraqjs/plugin-ai": "^0.5.0",
@@ -37,7 +37,6 @@
     "zod": "^4.4.3"
   },
   "peerDependencies": {
-    "@ai-sdk/openai-compatible": "^3.0.11",
     "@fraqjs/fraq": "^0.13.3",
     "@fraqjs/plugin-ai": "^0.5.0",
     "@fraqjs/plugin-kysely": "^0.2.0",
