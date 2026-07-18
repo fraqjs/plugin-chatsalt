@@ -25,7 +25,7 @@ export interface ChatsaltPluginOptions {
 
   debug?: {
     respondRejectedMessages?: boolean;
-    logAllMemoryOperations?: boolean;
+    logAllToolCalls?: boolean;
   };
 }
 
@@ -48,7 +48,7 @@ export const ChatsaltPlugin = definePlugin({
     const maxMemoryScopeCount = options.memory?.maxScopeCount ?? 50;
 
     const debug_respondRejectedMessages = options.debug?.respondRejectedMessages ?? false;
-    const debug_logAllMemoryOperations = options.debug?.logAllMemoryOperations ?? false;
+    const debug_logAllToolCalls = options.debug?.logAllToolCalls ?? false;
 
     let memoryStore: MemoryStore | undefined;
     if (memoryEnabled) {
@@ -82,7 +82,7 @@ export const ChatsaltPlugin = definePlugin({
         Object.assign(tools, memoryTools(memoryStore, memoryScope));
       }
 
-      const { text, toolCalls } = await generateText({
+      const { text, toolCalls, toolResults } = await generateText({
         model: chatModel,
         system: buildSystemPrompt({
           selfId: self_id,
@@ -102,12 +102,11 @@ export const ChatsaltPlugin = definePlugin({
         stopWhen: stepCountIs(maxToolSteps),
       });
 
-      if (debug_logAllMemoryOperations && memoryStore) {
+      if (debug_logAllToolCalls) {
         if (toolCalls.length > 0) {
           for (const call of toolCalls) {
-            if (call.toolName === 'remember' || call.toolName === 'forget') {
-              ctx.logger.info(`Memory operation: ${call.toolName} with input ${JSON.stringify(call.input)}`);
-            }
+            const result = toolResults.find((r) => r.toolCallId === call.toolCallId);
+            ctx.logger.debug(`Tool call (${call.toolName}): ${JSON.stringify(call.input)} -> ${JSON.stringify(result)}`);
           }
         }
       }

@@ -45,7 +45,7 @@ ctx.install(ChatsaltPlugin, {
   persona: readFileSync('test/salt.persona.md', 'utf-8'),
   debug: {
     respondRejectedMessages: true,
-    logAllMemoryOperations: true,
+    logAllToolCalls: true,
   },
 });
 
