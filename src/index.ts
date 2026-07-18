@@ -25,6 +25,7 @@ export interface ChatsaltPluginOptions {
 
   debug?: {
     respondRejectedMessages?: boolean;
+    logAllMemoryOperations?: boolean;
   };
 }
 
@@ -47,6 +48,7 @@ export const ChatsaltPlugin = definePlugin({
     const maxMemoryScopeCount = options.memory?.maxScopeCount ?? 50;
 
     const debug_respondRejectedMessages = options.debug?.respondRejectedMessages ?? false;
+    const debug_logAllMemoryOperations = options.debug?.logAllMemoryOperations ?? false;
 
     let memoryStore: MemoryStore | undefined;
     if (memoryEnabled) {
@@ -80,7 +82,7 @@ export const ChatsaltPlugin = definePlugin({
         Object.assign(tools, memoryTools(memoryStore, memoryScope));
       }
 
-      const { text } = await generateText({
+      const { text, toolCalls } = await generateText({
         model: chatModel,
         system: buildSystemPrompt({
           selfId: self_id,
@@ -99,6 +101,16 @@ export const ChatsaltPlugin = definePlugin({
         temperature: temperature,
         stopWhen: stepCountIs(maxToolSteps),
       });
+
+      if (debug_logAllMemoryOperations && memoryStore) {
+        if (toolCalls.length > 0) {
+          for (const call of toolCalls) {
+            if (call.toolName === 'remember' || call.toolName === 'forget') {
+              ctx.logger.info(`Memory operation: ${call.toolName} with input ${JSON.stringify(call.input)}`);
+            }
+          }
+        }
+      }
 
       if (!debug_respondRejectedMessages) {
         if (text.startsWith('no_reply')) {
