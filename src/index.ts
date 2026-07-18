@@ -1,10 +1,11 @@
 import { definePlugin, msg, seg } from '@fraqjs/fraq';
 import { AiService, xmlifyThread } from '@fraqjs/plugin-ai';
 import { KyselyService } from '@fraqjs/plugin-kysely';
-import { generateText, stepCountIs } from 'ai';
+import { generateText, stepCountIs, type Tool } from 'ai';
 
+import { MemoryStore } from './memory';
 import { buildPrompt, buildSystemPrompt, extractSenderName } from './prompt';
-import { describeImageTool } from './tool';
+import { describeImageTool, memoryTools } from './tool';
 import { shouldTriggerChat } from './trigger';
 
 export interface ChatsaltPluginOptions {
@@ -16,6 +17,11 @@ export interface ChatsaltPluginOptions {
   temperature?: number;
   maxToolSteps?: number;
   extraPrompt?: string;
+  memory?: {
+    enabled?: boolean;
+    maxWindow?: number;
+    maxScopeCount?: number;
+  };
 
   debug?: {
     respondRejectedMessages?: boolean;
@@ -29,16 +35,28 @@ export const ChatsaltPlugin = definePlugin({
     kysely: KyselyService,
   },
   apply(ctx, options: ChatsaltPluginOptions) {
+    const chatModel = ctx.ai.model(options.chatModel);
+    const visionModel = ctx.ai.model(options.visionModel ?? options.chatModel);
+
+    const contextSize = options.contextSize ?? 20;
+    const temperature = options.temperature ?? 0.8;
+    const maxToolSteps = options.maxToolSteps ?? 10;
+
+    const memoryEnabled = options.memory?.enabled ?? true;
+    const maxMemoryWindow = options.memory?.maxWindow ?? 20;
+    const maxMemoryScopeCount = options.memory?.maxScopeCount ?? 50;
+
+    const debug_respondRejectedMessages = options.debug?.respondRejectedMessages ?? false;
+
+    let memoryStore: MemoryStore | undefined;
+    if (memoryEnabled) {
+      memoryStore = new MemoryStore(ctx.kysely, {
+        maxWindow: maxMemoryWindow,
+        maxScopeCount: maxMemoryScopeCount,
+      });
+    }
+
     ctx.on('message_receive', async ({ self_id, data }) => {
-      const chatModel = ctx.ai.model(options.chatModel);
-      const visionModel = ctx.ai.model(options.visionModel ?? options.chatModel);
-
-      const contextSize = options.contextSize ?? 20;
-      const temperature = options.temperature ?? 0.8;
-      const maxToolSteps = options.maxToolSteps ?? 10;
-
-      const debug_respondRejectedMessages = options.debug?.respondRejectedMessages ?? false;
-
       if (!shouldTriggerChat(self_id, data)) {
         return;
       }
@@ -50,6 +68,20 @@ export const ChatsaltPlugin = definePlugin({
       });
       const thread = await xmlifyThread(ctx, messages);
 
+      const tools: Record<string, Tool> = {};
+      tools.describe_image = describeImageTool({ ctx, thread, visionModel });
+      if (memoryStore) {
+        Object.assign(
+          tools,
+          memoryTools(memoryStore, {
+            selfId: self_id,
+            scene: data.message_scene as 'friend' | 'group',
+            peerId: data.peer_id,
+            subjectId: data.sender_id,
+          }),
+        );
+      }
+
       const { text } = await generateText({
         model: chatModel,
         system: buildSystemPrompt({
@@ -58,14 +90,13 @@ export const ChatsaltPlugin = definePlugin({
           senderId: data.sender_id,
           senderName: extractSenderName(data),
           persona: options.persona,
+          memoryEnabled: memoryEnabled,
           extraPrompt: options.extraPrompt,
         }),
         prompt: buildPrompt({
           thread: thread.xmlContent,
         }),
-        tools: {
-          describe_image: describeImageTool({ ctx, thread, visionModel }),
-        },
+        tools: tools,
         temperature: temperature,
         stopWhen: stepCountIs(maxToolSteps),
       });

@@ -3,6 +3,8 @@ import type { XmlifyContext } from '@fraqjs/plugin-ai';
 import { generateText, type LanguageModel, type Tool, tool } from 'ai';
 import z from 'zod';
 
+import type { MemoryScope, MemoryStore } from './memory';
+
 export interface DescribeImageToolOptions {
   ctx: Context;
   thread: XmlifyContext;
@@ -49,4 +51,29 @@ export function describeImageTool(options: DescribeImageToolOptions): Tool {
       }
     },
   });
+}
+
+export function memoryTools(store: MemoryStore, scope: MemoryScope): Record<'remember' | 'forget', Tool> {
+  return {
+    remember: tool({
+      description: '记住一条有关当前会话对象的记忆',
+      inputSchema: z.object({
+        content: z.string().describe('记忆的内容'),
+      }),
+      execute: async (input) => {
+        const entry = await store.remember(scope, input.content);
+        return { ok: true, result: entry };
+      },
+    }),
+    forget: tool({
+      description: '忘记一条有关当前会话对象的记忆',
+      inputSchema: z.object({
+        id: z.number().describe('记忆的 ID'),
+      }),
+      execute: async (input) => {
+        const success = await store.forget(scope, input.id);
+        return { ok: success };
+      },
+    }),
+  };
 }

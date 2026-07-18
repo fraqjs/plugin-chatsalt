@@ -1,16 +1,20 @@
 import type { milky } from '@fraqjs/fraq';
 
+import type { MemoryEntry } from './memory';
+
 export interface SystemPromptOptions {
   selfId: number;
   scene: 'friend' | 'group';
   senderId: number;
   senderName: string;
   persona: string;
+  memoryEnabled: boolean;
   extraPrompt?: string;
 }
 
 export interface PromptOptions {
   thread: string;
+  memories?: MemoryEntry[];
 }
 
 export function extractSenderName(message: milky.IncomingMessage): string {
@@ -74,6 +78,34 @@ no_reply (用户的提问涉及 xxx，不该回答)
     `.trim(),
   );
 
+  components.push(
+    '# 记忆说明',
+    `
+系统会提供一份 <memories> 列表，是你对当前会话/对方已保存的长期记忆。
+写回复前先扫一遍；能用记忆就自然用上，但不要主动炫耀“我记得你”。
+
+你可以使用 remember / forget 管理记忆。调用时不要在对用户的回复里提及工具或“记笔记”。
+
+何时 remember：
+- 对方明确表达的、跨多次聊天仍有用的稳定事实（称呼、偏好、约定、长期关系信息）。
+- 对方纠正了旧信息：先 forget 对应条目，再 remember 新内容。
+- content 写成一句客观短句，尽量带 QQ 号，例如：「QQ 12345 家的猫是金黄色的」。
+
+何时不要 remember：
+- 一时情绪、单次事件、无后续价值的闲聊。
+- 已在 <memories> 中存在的相同事实。
+- 隐私敏感信息（密码、证件、精确住址、手机号等）。
+- 不确定或道听途说的内容。
+
+何时 forget：
+- 对方要求删除/忘记某事。
+- 旧记忆与新事实冲突。
+- 明显过时或重复的条目。
+
+没有值得记录或删除的内容时，不要调用工具。
+    `.trim(),
+  );
+
   if (options.extraPrompt) {
     components.push('# 其他提示', options.extraPrompt);
   }
@@ -82,6 +114,22 @@ no_reply (用户的提问涉及 xxx，不该回答)
 }
 
 export function buildPrompt(options: PromptOptions) {
-  const components: string[] = ['# 上下文', options.thread];
+  const components: string[] = [];
+
+  components.push('# 上下文', options.thread);
+
+  if (options.memories && options.memories.length > 0) {
+    components.push(
+      '# 记忆',
+      `
+当前会话对象的记忆有：
+
+${options.memories.map((m) => `- [id=${m.id}] ${m.content}`).join('\n')}
+
+id 仅用于 forget，回复中不要出现 id。
+      `.trim(),
+    );
+  }
+
   return components.join('\n\n');
 }
