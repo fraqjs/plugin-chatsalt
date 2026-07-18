@@ -23,16 +23,16 @@ importers:
         version: 2.5.4
       '@fraqjs/mock':
         specifier: ^0.1.0
-        version: 0.1.0
+        version: 0.1.0(@fraqjs/fraq@0.13.3)
       '@fraqjs/plugin-ai':
         specifier: ^0.5.0
-        version: 0.5.0(ai@7.0.29(zod@4.4.3))
+        version: 0.5.0(@fraqjs/fraq@0.13.3)(ai@7.0.29(zod@4.4.3))
       '@fraqjs/plugin-kysely':
         specifier: ^0.2.0
-        version: 0.2.0
+        version: 0.2.0(@fraqjs/fraq@0.13.3)
       '@fraqjs/plugin-message-store':
-        specifier: ^0.1.0
-        version: 0.1.0(@fraqjs/plugin-kysely@0.2.0)
+        specifier: ^0.2.0
+        version: 0.2.0(@fraqjs/fraq@0.13.3)(@fraqjs/plugin-kysely@0.2.0(@fraqjs/fraq@0.13.3))
       '@types/node':
         specifier: ^24.13.2
         version: 24.13.3
@@ -332,10 +332,10 @@ packages:
     peerDependencies:
       '@fraqjs/fraq': ^0.13.0
 
-  '@fraqjs/plugin-message-store@0.1.0':
-    resolution: {integrity: sha512-UM+oB+pZzM/29dn6McY/oaN110SNovDMpW+2PqWQfHiOwGadsRK9ibkB3pG1qRVjpaNc/HdvcSTUbApdUgjlpA==}
+  '@fraqjs/plugin-message-store@0.2.0':
+    resolution: {integrity: sha512-p6C7x9q1mbwdgSTQDlh/sNhIk39MJw6vP4SF5PgSrTYGKl1xOK895cfjkBx2kKSM1vnKX/ykAo/Ij/Jj/DSziA==}
     peerDependencies:
-      '@fraqjs/fraq': ^0.13.0
+      '@fraqjs/fraq': ^0.13.3
       '@fraqjs/plugin-kysely': ^0.2.0
 
   '@napi-rs/wasm-runtime@1.1.6':
@@ -985,10 +985,13 @@ snapshots:
     dependencies:
       mitt: 3.0.1
 
-  '@fraqjs/mock@0.1.0': {}
-
-  '@fraqjs/plugin-ai@0.5.0(ai@7.0.29(zod@4.4.3))':
+  '@fraqjs/mock@0.1.0(@fraqjs/fraq@0.13.3)':
     dependencies:
+      '@fraqjs/fraq': 0.13.3
+
+  '@fraqjs/plugin-ai@0.5.0(@fraqjs/fraq@0.13.3)(ai@7.0.29(zod@4.4.3))':
+    dependencies:
+      '@fraqjs/fraq': 0.13.3
       ai: 7.0.29(zod@4.4.3)
       dom-serializer: 3.1.1
       domhandler: 6.0.1
@@ -996,13 +999,15 @@ snapshots:
       xml-formatter: 3.7.0
       zod: 4.4.3
 
-  '@fraqjs/plugin-kysely@0.2.0':
+  '@fraqjs/plugin-kysely@0.2.0(@fraqjs/fraq@0.13.3)':
     dependencies:
+      '@fraqjs/fraq': 0.13.3
       kysely: 0.29.3
 
-  '@fraqjs/plugin-message-store@0.1.0(@fraqjs/plugin-kysely@0.2.0)':
+  '@fraqjs/plugin-message-store@0.2.0(@fraqjs/fraq@0.13.3)(@fraqjs/plugin-kysely@0.2.0(@fraqjs/fraq@0.13.3))':
     dependencies:
-      '@fraqjs/plugin-kysely': 0.2.0
+      '@fraqjs/fraq': 0.13.3
+      '@fraqjs/plugin-kysely': 0.2.0(@fraqjs/fraq@0.13.3)
 
   '@napi-rs/wasm-runtime@1.1.6(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)':
     dependencies:

@@ -26,7 +26,7 @@
     "@fraqjs/mock": "^0.1.0",
     "@fraqjs/plugin-ai": "^0.5.0",
     "@fraqjs/plugin-kysely": "^0.2.0",
-    "@fraqjs/plugin-message-store": "^0.1.0",
+    "@fraqjs/plugin-message-store": "^0.2.0",
     "@types/node": "^24.13.2",
     "ai": "^7.0.29",
     "dotenv": "^17.4.2",
