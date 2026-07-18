@@ -14,6 +14,7 @@ export interface ChatsaltPluginOptions {
   visionModel?: string;
 
   contextSize?: number;
+  expandForwardDepth?: number;
   temperature?: number;
   maxToolSteps?: number;
   extraPrompt?: string;
@@ -39,6 +40,7 @@ export const ChatsaltPlugin = definePlugin({
     const chatModel = ctx.ai.model(options.chatModel);
     const visionModel = ctx.ai.model(options.visionModel ?? options.chatModel);
 
+    const maxForwardDepth = options.expandForwardDepth ?? 0;
     const contextSize = options.contextSize ?? 20;
     const temperature = options.temperature ?? 0.8;
     const maxToolSteps = options.maxToolSteps ?? 10;
@@ -68,7 +70,9 @@ export const ChatsaltPlugin = definePlugin({
         peer_id: data.peer_id,
         limit: contextSize,
       });
-      const thread = await xmlifyThread(ctx, messages);
+      const thread = await xmlifyThread(ctx, messages, {
+        maxForwardDepth: maxForwardDepth,
+      });
       const memoryScope = {
         selfId: self_id,
         scene: data.message_scene as 'friend' | 'group',
