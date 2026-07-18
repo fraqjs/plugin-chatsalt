@@ -82,7 +82,7 @@ export const ChatsaltPlugin = definePlugin({
         Object.assign(tools, memoryTools(memoryStore, memoryScope));
       }
 
-      const { text, toolResults } = await generateText({
+      const { text, toolResults, content } = await generateText({
         model: chatModel,
         system: buildSystemPrompt({
           selfId: self_id,
@@ -102,10 +102,18 @@ export const ChatsaltPlugin = definePlugin({
         stopWhen: stepCountIs(maxToolSteps),
       });
 
+      for (const result of content) {
+        if (result.type === 'tool-error') {
+          ctx.logger.warn(`Tool call (${result.toolName}) failed`, result.error);
+        }
+      }
+
       if (debug_logAllToolCalls) {
         if (toolResults.length > 0) {
           for (const result of toolResults) {
-            ctx.logger.debug(`Tool call (${result.toolName}): ${JSON.stringify(result.input)} -> ${JSON.stringify(result.output)}`);
+            ctx.logger.debug(
+              `Tool call (${result.toolName}): ${JSON.stringify(result.input)} -> ${JSON.stringify(result.output)}`,
+            );
           }
         }
       }
