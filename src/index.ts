@@ -13,7 +13,7 @@ export interface ChatsaltPluginOptions {
   chatModel?: string;
   visionModel?: string;
 
-  contextSize?: number;
+  contextWindow?: number;
   expandForwardDepth?: number;
   temperature?: number;
   maxToolSteps?: number;
@@ -41,7 +41,7 @@ export const ChatsaltPlugin = definePlugin({
     const visionModel = ctx.ai.model(options.visionModel ?? options.chatModel);
 
     const maxForwardDepth = options.expandForwardDepth ?? 0;
-    const contextSize = options.contextSize ?? 20;
+    const contextWindow = options.contextWindow ?? 20;
     const temperature = options.temperature ?? 0.8;
     const maxToolSteps = options.maxToolSteps ?? 10;
 
@@ -68,7 +68,7 @@ export const ChatsaltPlugin = definePlugin({
       const { messages } = await ctx.client.get_history_messages({
         message_scene: data.message_scene,
         peer_id: data.peer_id,
-        limit: contextSize,
+        limit: contextWindow,
       });
       const thread = await xmlifyThread(ctx, messages, {
         maxForwardDepth: maxForwardDepth,
