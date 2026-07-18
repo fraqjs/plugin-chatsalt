@@ -36,15 +36,8 @@ export function describeImageTool(options: DescribeImageToolOptions): Tool {
             {
               role: 'user',
               content: [
-                {
-                  type: 'text',
-                  text: question,
-                },
-                {
-                  type: 'file',
-                  mediaType: 'image',
-                  data: image,
-                },
+                { type: 'text', text: question },
+                { type: 'file', mediaType: 'image', data: image },
               ],
             },
           ],
