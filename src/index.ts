@@ -15,6 +15,9 @@ export interface ChatsaltPluginOptions {
   chatModel?: string;
   visionModel?: string;
   extraPrompt?: string;
+  debug?: {
+    respondRejectedMessages?: boolean;
+  };
 }
 
 export const ChatsaltPlugin = definePlugin({
@@ -28,6 +31,8 @@ export const ChatsaltPlugin = definePlugin({
       const contextSize = options.contextSize ?? 20;
       const temperature = options.temperature ?? 0.8;
       const maxToolSteps = options.maxToolSteps ?? 10;
+
+      const debug_respondRejectedMessages = options.debug?.respondRejectedMessages ?? false;
 
       const visionModel = ctx.ai.model(options.visionModel ?? options.chatModel);
 
@@ -59,12 +64,14 @@ export const ChatsaltPlugin = definePlugin({
           describe_image: describeImageTool({ ctx, thread, visionModel }),
         },
         temperature: temperature,
-        stopWhen: stepCountIs(maxToolSteps)
+        stopWhen: stepCountIs(maxToolSteps),
       });
 
-      if (text.startsWith('no_reply')) {
-        ctx.logger.warn(`Rejected message from ${data.sender_id} in ${data.message_scene} ${data.peer_id}: ${text}`);
-        return;
+      if (!debug_respondRejectedMessages) {
+        if (text.startsWith('no_reply')) {
+          ctx.logger.warn(`Rejected message from ${data.sender_id} in ${data.message_scene} ${data.peer_id}: ${text}`);
+          return;
+        }
       }
 
       switch (data.message_scene) {
