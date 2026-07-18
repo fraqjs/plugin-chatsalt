@@ -16,10 +16,10 @@ export function shouldTriggerChat(selfId: number, message: milky.IncomingMessage
     if (!first) {
       return false;
     }
-    if (first.type === 'mention' && first.data.user_id === selfId) {
+    if (first.type === 'reply' && first.data.sender_id === selfId) {
       return true;
     }
-    if (first.type === 'reply' && first.data.sender_id === selfId) {
+    if (message.segments.some((seg) => seg.type === 'mention' && seg.data.user_id === selfId)) {
       return true;
     }
   }
