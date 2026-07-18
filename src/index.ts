@@ -73,7 +73,6 @@ export const ChatsaltPlugin = definePlugin({
         selfId: self_id,
         scene: data.message_scene as 'friend' | 'group',
         peerId: data.peer_id,
-        subjectId: data.sender_id,
       };
 
       const tools: Record<string, Tool> = {};
