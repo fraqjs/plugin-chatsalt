@@ -43,7 +43,7 @@ ctx.install(MessageStorePlugin);
 
 ctx.install(ChatsaltPlugin, {
   persona: readFileSync('test/salt.persona.md', 'utf-8'),
-  expandForwardDepth: 2,
+  maxForwardDepth: 2,
   debug: {
     respondRejectedMessages: true,
     logAllToolCalls: true,
