@@ -67,19 +67,17 @@ export const ChatsaltPlugin = definePlugin({
         limit: contextSize,
       });
       const thread = await xmlifyThread(ctx, messages);
+      const memoryScope = {
+        selfId: self_id,
+        scene: data.message_scene as 'friend' | 'group',
+        peerId: data.peer_id,
+        subjectId: data.sender_id,
+      };
 
       const tools: Record<string, Tool> = {};
       tools.describe_image = describeImageTool({ ctx, thread, visionModel });
       if (memoryStore) {
-        Object.assign(
-          tools,
-          memoryTools(memoryStore, {
-            selfId: self_id,
-            scene: data.message_scene as 'friend' | 'group',
-            peerId: data.peer_id,
-            subjectId: data.sender_id,
-          }),
-        );
+        Object.assign(tools, memoryTools(memoryStore, memoryScope));
       }
 
       const { text } = await generateText({
@@ -95,6 +93,7 @@ export const ChatsaltPlugin = definePlugin({
         }),
         prompt: buildPrompt({
           thread: thread.xmlContent,
+          memories: await memoryStore?.recall(memoryScope),
         }),
         tools: tools,
         temperature: temperature,
