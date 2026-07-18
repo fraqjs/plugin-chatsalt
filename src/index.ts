@@ -82,7 +82,7 @@ export const ChatsaltPlugin = definePlugin({
         Object.assign(tools, memoryTools(memoryStore, memoryScope));
       }
 
-      const { text, toolCalls, toolResults } = await generateText({
+      const { text, toolResults } = await generateText({
         model: chatModel,
         system: buildSystemPrompt({
           selfId: self_id,
@@ -103,10 +103,9 @@ export const ChatsaltPlugin = definePlugin({
       });
 
       if (debug_logAllToolCalls) {
-        if (toolCalls.length > 0) {
-          for (const call of toolCalls) {
-            const result = toolResults.find((r) => r.toolCallId === call.toolCallId);
-            ctx.logger.debug(`Tool call (${call.toolName}): ${JSON.stringify(call.input)} -> ${JSON.stringify(result)}`);
+        if (toolResults.length > 0) {
+          for (const result of toolResults) {
+            ctx.logger.debug(`Tool call (${result.toolName}): ${JSON.stringify(result.input)} -> ${JSON.stringify(result.output)}`);
           }
         }
       }
