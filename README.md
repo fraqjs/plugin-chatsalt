@@ -4,7 +4,7 @@
 
 ## 安装与配置
 
-将插件添加至 `dependencies`，然后在创建 `Context` 时引入并配置插件。本插件依赖 [`@fraqjs/plugin-ai`](https://fraq.dev/docs/plugins/message-ai) 和 [`@fraqjs/plugin-kysely`](https://fraq.dev/docs/plugins/kysely) 插件，因此需要一并安装。推荐配合 [`@fraqjs/plugin-message-store`](https://fraq.dev/docs/plugins/message-store) 插件使用，以便在数据库中持久化消息，减少远程拉取消息上下文的次数。
+将插件添加至 `dependencies`，然后在创建 `Context` 时引入并配置插件。本插件依赖 [`@fraqjs/plugin-ai`](https://fraq.dev/docs/plugins/ai) 和 [`@fraqjs/plugin-kysely`](https://fraq.dev/docs/plugins/kysely) 插件，因此需要一并安装。推荐配合 [`@fraqjs/plugin-message-store`](https://fraq.dev/docs/plugins/message-store) 插件使用，以便在数据库中持久化消息，减少远程拉取消息上下文的次数。
 
 ```typescript
 import AiPlugin from "@fraqjs/plugin-ai";
