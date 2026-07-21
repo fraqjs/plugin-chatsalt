@@ -1,6 +1,6 @@
 # fraq-plugin-chatsalt
 
-通用 AI 对话插件。
+通用 AI 对话插件
 
 ## 安装与配置
 
