@@ -25,12 +25,6 @@ export function describeImageTool(options: DescribeImageToolOptions): Tool {
       }
 
       try {
-        const response = await fetch(imageInfo.url, { redirect: 'follow' });
-        if (!response.ok) {
-          options.ctx.logger.error(`下载图片失败：HTTP ${response.status}`);
-          return { ok: false, error: `图片下载失败` };
-        }
-        const image = await response.arrayBuffer();
         const question = input.question || '请描述这张图片的内容。';
         const { text } = await generateText({
           model: options.visionModel,
@@ -39,7 +33,7 @@ export function describeImageTool(options: DescribeImageToolOptions): Tool {
               role: 'user',
               content: [
                 { type: 'text', text: question },
-                { type: 'file', mediaType: 'image', data: image },
+                { type: 'file', mediaType: 'image', data: { type: 'url', url: new URL(imageInfo.url) } },
               ],
             },
           ],
