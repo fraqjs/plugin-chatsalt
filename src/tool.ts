@@ -58,10 +58,11 @@ export interface GetMessageToolOptions {
   ctx: Context;
   scene: 'friend' | 'group';
   peerId: number;
+  thread: XmlifyContext;
   resourceIndex: ResourceIndex;
 }
 
-export function getMessageTool({ ctx, scene, peerId, resourceIndex }: GetMessageToolOptions): Tool {
+export function getMessageTool({ ctx, scene, peerId, thread, resourceIndex }: GetMessageToolOptions): Tool {
   return tool({
     description: '获取指定消息的内容，包括合并转发消息的具体内容',
     inputSchema: z.object({
@@ -73,8 +74,15 @@ export function getMessageTool({ ctx, scene, peerId, resourceIndex }: GetMessage
         peer_id: peerId,
         message_seq: input.seq,
       });
-      const thread = await xmlify(ctx, message, { maxForwardDepth: 1, resourceIndex });
-      return { ok: true, result: thread };
+      const { xmlContent, resources, files, forwards } = await xmlify(ctx, message, {
+        maxForwardDepth: 1,
+        resourceIndex,
+      });
+      // merge fetched resources, files, and forwards into the current thread
+      Object.assign(thread.resources, resources);
+      Object.assign(thread.files, files);
+      Object.assign(thread.forwards, forwards);
+      return { ok: true, result: xmlContent };
     },
   });
 }

@@ -87,6 +87,7 @@ export const ChatsaltPlugin = definePlugin({
         ctx,
         scene: data.message_scene,
         peerId: data.peer_id,
+        thread,
         resourceIndex,
       });
       if (memoryStore) {
