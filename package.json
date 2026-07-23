@@ -1,7 +1,7 @@
 {
   "name": "fraq-plugin-chatsalt",
   "type": "module",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "description": "通用 AI 对话插件",
   "files": [
     "dist"
