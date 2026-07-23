@@ -1,9 +1,16 @@
 import type { Context } from '@fraqjs/fraq';
-import type { XmlifyContext } from '@fraqjs/plugin-ai';
+import { type ResourceIndex, type XmlifyContext, xmlify } from '@fraqjs/plugin-ai';
 import { generateText, type LanguageModel, type Tool, tool } from 'ai';
 import z from 'zod';
 
 import type { MemoryScope, MemoryStore } from './memory';
+
+function stringifyError(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return String(error);
+}
 
 export interface DescribeImageToolOptions {
   ctx: Context;
@@ -11,7 +18,7 @@ export interface DescribeImageToolOptions {
   visionModel: LanguageModel;
 }
 
-export function describeImageTool(options: DescribeImageToolOptions): Tool {
+export function describeImageTool({ ctx, thread, visionModel }: DescribeImageToolOptions): Tool {
   return tool({
     description: '描述图片内容，或对图片内容提出特定的问题。',
     inputSchema: z.object({
@@ -19,7 +26,7 @@ export function describeImageTool(options: DescribeImageToolOptions): Tool {
       question: z.string().optional().describe('对图片提出的问题'),
     }),
     execute: async (input) => {
-      const imageInfo = options.thread.resources[input.imageId];
+      const imageInfo = thread.resources[input.imageId];
       if (!imageInfo) {
         throw new Error(`找不到 id 为 ${input.imageId} 的图片资源。`);
       }
@@ -27,7 +34,7 @@ export function describeImageTool(options: DescribeImageToolOptions): Tool {
       try {
         const question = input.question || '请描述这张图片的内容。';
         const { text } = await generateText({
-          model: options.visionModel,
+          model: visionModel,
           messages: [
             {
               role: 'user',
@@ -40,9 +47,34 @@ export function describeImageTool(options: DescribeImageToolOptions): Tool {
         });
         return { ok: true, result: text };
       } catch (error) {
-        options.ctx.logger.error(`描述图片失败：${error}`);
-        return { ok: false, error: `描述图片失败` };
+        ctx.logger.error(`描述图片失败：${error}`);
+        return { ok: false, error: `描述图片失败: ${stringifyError(error)}` };
       }
+    },
+  });
+}
+
+export interface GetMessageToolOptions {
+  ctx: Context;
+  scene: 'friend' | 'group';
+  peerId: number;
+  resourceIndex: ResourceIndex;
+}
+
+export function getMessageTool({ ctx, scene, peerId, resourceIndex }: GetMessageToolOptions): Tool {
+  return tool({
+    description: '获取指定消息的内容，包括合并转发消息的具体内容',
+    inputSchema: z.object({
+      seq: z.number().describe('消息的 seq'),
+    }),
+    execute: async (input) => {
+      const { message } = await ctx.client.get_message({
+        message_scene: scene,
+        peer_id: peerId,
+        message_seq: input.seq,
+      });
+      const thread = await xmlify(ctx, message, { maxForwardDepth: 1, resourceIndex });
+      return { ok: true, result: thread };
     },
   });
 }

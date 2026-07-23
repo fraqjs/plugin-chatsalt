@@ -17,10 +17,10 @@ plugins:
   fraqjs/message-store:
     # 在这里传入 MessageStorePlugin 的配置选项
   chatsalt:
-    # 角色设定文本，推荐使用 Markdown 格式。角色设定文本会在每次对话开始时被注入到上下文中。
-    persona: |
-      你是一个 AI 助手，专注于帮助用户解决问题。
-      你应该始终保持礼貌和专业，提供准确和有用的信息。
+    # 角色设定文本，推荐使用 Markdown 格式，并且保存在另一个文件中以保持配置文件可读性。
+    # 这里的配置表示从 persona.md 文件中读取角色设定文本
+    # 角色设定文本会在每次对话开始时被注入到上下文中。
+    persona: ${{ text:persona.md }}
     # 用于对话的语言模型，可以指定在 fraqjs/ai 插件中配置的模型名称或别名
     # 默认使用 ctx.ai.model() 获取的模型
     # chatModel: google/gemini-3.5-flash

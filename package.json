@@ -34,8 +34,8 @@
   },
   "peerDependencies": {
     "@fraqjs/fraq": "^0.14.0",
-    "@fraqjs/plugin-ai": "^0.5.1",
-    "@fraqjs/plugin-kysely": "^0.2.2",
+    "@fraqjs/plugin-ai": "^0.5.3",
+    "@fraqjs/plugin-kysely": "^0.3.0",
     "ai": "^7.0.31",
     "zod": "^4.4.3"
   },

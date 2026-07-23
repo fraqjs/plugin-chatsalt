@@ -12,11 +12,11 @@ importers:
         specifier: ^0.14.0
         version: 0.14.0
       '@fraqjs/plugin-ai':
-        specifier: ^0.5.1
-        version: 0.5.1(@fraqjs/fraq@0.14.0)(ai@7.0.31(zod@4.4.3))
+        specifier: ^0.5.3
+        version: 0.5.3(@fraqjs/fraq@0.14.0)(ai@7.0.31(zod@4.4.3))
       '@fraqjs/plugin-kysely':
-        specifier: ^0.2.2
-        version: 0.2.2(@fraqjs/fraq@0.14.0)
+        specifier: ^0.3.0
+        version: 0.3.0(@fraqjs/fraq@0.14.0)
       ai:
         specifier: ^7.0.31
         version: 7.0.31(zod@4.4.3)
@@ -35,7 +35,7 @@ importers:
         version: 0.1.0(@fraqjs/fraq@0.14.0)
       '@fraqjs/plugin-message-store':
         specifier: ^0.3.1
-        version: 0.3.1(@fraqjs/fraq@0.14.0)(@fraqjs/plugin-kysely@0.2.2(@fraqjs/fraq@0.14.0))
+        version: 0.3.1(@fraqjs/fraq@0.14.0)(@fraqjs/plugin-kysely@0.3.0(@fraqjs/fraq@0.14.0))
       '@types/node':
         specifier: ^24.13.3
         version: 24.13.3
@@ -310,15 +310,15 @@ packages:
     peerDependencies:
       '@fraqjs/fraq': ^0.6.0
 
-  '@fraqjs/plugin-ai@0.5.1':
-    resolution: {integrity: sha512-tfHLZJUMIA/1L40Qas5L+cvQ8W56x9yrqm6hxEIw4KZyHa0zkswt9n6RElUiAcMQKW3GYPZOfEuScVKcjNKDpw==}
+  '@fraqjs/plugin-ai@0.5.3':
+    resolution: {integrity: sha512-a4rn8g1nXG+K2NpJfJgLdjM21UlTZOBJzfl1o64wwBa4r6CFMQa6am5g9fiFhhIUv/TCr3+ZtbjBfEwXzZgVaA==}
     engines: {node: '>=22'}
     peerDependencies:
       '@fraqjs/fraq': ^0.14.0
       ai: ^7.0.0
 
-  '@fraqjs/plugin-kysely@0.2.2':
-    resolution: {integrity: sha512-WPLG36UoiWYlMC7GWnk4JEHC14KCZhUbMOkCCxEMMF/HTLNPcacyZhuKssd6Kzyb0pR1WxwSroUn8CDYI0f7wg==}
+  '@fraqjs/plugin-kysely@0.3.0':
+    resolution: {integrity: sha512-m7QUbLAfxYF9GQROEUaRb3/hm7DRTgOWXv1du7XRE3UyqUcilGSVszbIQFVF4hU2zwjFmZsLv/2T3Me7xSMI8A==}
     engines: {node: '>=22.13'}
     peerDependencies:
       '@fraqjs/fraq': ^0.14.0
@@ -973,7 +973,7 @@ snapshots:
     dependencies:
       '@fraqjs/fraq': 0.14.0
 
-  '@fraqjs/plugin-ai@0.5.1(@fraqjs/fraq@0.14.0)(ai@7.0.31(zod@4.4.3))':
+  '@fraqjs/plugin-ai@0.5.3(@fraqjs/fraq@0.14.0)(ai@7.0.31(zod@4.4.3))':
     dependencies:
       '@fraqjs/fraq': 0.14.0
       ai: 7.0.31(zod@4.4.3)
@@ -983,15 +983,15 @@ snapshots:
       xml-formatter: 3.7.0
       zod: 4.4.3
 
-  '@fraqjs/plugin-kysely@0.2.2(@fraqjs/fraq@0.14.0)':
+  '@fraqjs/plugin-kysely@0.3.0(@fraqjs/fraq@0.14.0)':
     dependencies:
       '@fraqjs/fraq': 0.14.0
       kysely: 0.29.4
 
-  '@fraqjs/plugin-message-store@0.3.1(@fraqjs/fraq@0.14.0)(@fraqjs/plugin-kysely@0.2.2(@fraqjs/fraq@0.14.0))':
+  '@fraqjs/plugin-message-store@0.3.1(@fraqjs/fraq@0.14.0)(@fraqjs/plugin-kysely@0.3.0(@fraqjs/fraq@0.14.0))':
     dependencies:
       '@fraqjs/fraq': 0.14.0
-      '@fraqjs/plugin-kysely': 0.2.2(@fraqjs/fraq@0.14.0)
+      '@fraqjs/plugin-kysely': 0.3.0(@fraqjs/fraq@0.14.0)
 
   '@napi-rs/wasm-runtime@1.1.6(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)':
     dependencies:

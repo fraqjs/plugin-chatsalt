@@ -1,11 +1,11 @@
 import { definePlugin, msg, seg } from '@fraqjs/fraq';
-import { AiService, xmlifyThread } from '@fraqjs/plugin-ai';
+import { AiService, createResourceIndex, xmlifyThread } from '@fraqjs/plugin-ai';
 import { KyselyService } from '@fraqjs/plugin-kysely';
 import { generateText, stepCountIs, type Tool } from 'ai';
 
 import { MemoryStore } from './memory';
 import { buildPrompt, buildSystemPrompt, extractSenderName } from './prompt';
-import { describeImageTool, memoryTools } from './tool';
+import { describeImageTool, getMessageTool, memoryTools } from './tool';
 import { shouldTriggerChat } from './trigger';
 
 export interface ChatsaltPluginOptions {
@@ -64,21 +64,31 @@ export const ChatsaltPlugin = definePlugin({
       if (!shouldTriggerChat(self_id, data)) {
         return;
       }
+      if (data.message_scene === 'temp') {
+        return;
+      }
 
+      const resourceIndex = createResourceIndex();
       const { messages } = await ctx.client.get_history_messages({
         message_scene: data.message_scene,
         peer_id: data.peer_id,
         limit: contextWindow,
       });
-      const thread = await xmlifyThread(ctx, messages, { maxForwardDepth });
+      const thread = await xmlifyThread(ctx, messages, { maxForwardDepth, resourceIndex });
       const memoryScope = {
         selfId: self_id,
-        scene: data.message_scene as 'friend' | 'group',
+        scene: data.message_scene,
         peerId: data.peer_id,
       };
 
       const tools: Record<string, Tool> = {};
       tools.describe_image = describeImageTool({ ctx, thread, visionModel });
+      tools.get_message = getMessageTool({
+        ctx,
+        scene: data.message_scene,
+        peerId: data.peer_id,
+        resourceIndex,
+      });
       if (memoryStore) {
         Object.assign(tools, memoryTools(memoryStore, memoryScope));
       }
@@ -87,7 +97,7 @@ export const ChatsaltPlugin = definePlugin({
         model: chatModel,
         system: buildSystemPrompt({
           selfId: self_id,
-          scene: data.message_scene as 'friend' | 'group',
+          scene: data.message_scene,
           senderId: data.sender_id,
           senderName: extractSenderName(data),
           persona: options.persona,
