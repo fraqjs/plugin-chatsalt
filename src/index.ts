@@ -68,6 +68,15 @@ export const ChatsaltPlugin = definePlugin({
         return;
       }
 
+      if (data.message_scene === 'group') {
+        // Send a reaction to indicate that the message is being processed
+        await ctx.client.send_group_message_reaction({
+          group_id: data.peer_id,
+          message_seq: data.message_seq,
+          reaction: '424',
+        });
+      }
+
       const resourceIndex = createResourceIndex();
       const { messages } = await ctx.client.get_history_messages({
         message_scene: data.message_scene,
@@ -133,6 +142,14 @@ export const ChatsaltPlugin = definePlugin({
       if (!debug_respondRejectedMessages) {
         if (text.startsWith('no_reply')) {
           ctx.logger.warn(`Rejected message from ${data.sender_id} in ${data.message_scene} ${data.peer_id}: ${text}`);
+          if (data.message_scene === 'group') {
+            // Send a reaction to indicate that the message was rejected
+            await ctx.client.send_group_message_reaction({
+              group_id: data.peer_id,
+              message_seq: data.message_seq,
+              reaction: '479',
+            });
+          }
           return;
         }
       }
