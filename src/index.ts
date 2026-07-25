@@ -1,11 +1,10 @@
-import { definePlugin, msg, seg } from '@fraqjs/fraq';
+import { definePlugin, type milky, msg, seg } from '@fraqjs/fraq';
 import { AiService, ai, createResourceIndex, xmlifyThread } from '@fraqjs/plugin-ai';
 import { KyselyService } from '@fraqjs/plugin-kysely';
 
 import { MemoryStore } from './memory';
 import { buildPrompt, buildSystemPrompt, extractSenderName } from './prompt';
 import { describeImageTool, getMessageTool, memoryTools } from './tool';
-import { shouldTriggerChat } from './trigger';
 
 export interface ChatsaltPluginOptions {
   persona: string;
@@ -17,6 +16,9 @@ export interface ChatsaltPluginOptions {
   temperature?: number;
   maxToolSteps?: number;
   extraPrompt?: string;
+  trigger?: {
+    keywords?: string[];
+  };
   memory?: {
     enabled?: boolean;
     maxWindow?: number;
@@ -44,6 +46,8 @@ export const ChatsaltPlugin = definePlugin({
     const temperature = options.temperature ?? 0.8;
     const maxToolSteps = options.maxToolSteps ?? 10;
 
+    const triggerKeywords = options.trigger?.keywords ?? [];
+
     const memoryEnabled = options.memory?.enabled ?? true;
     const maxMemoryWindow = options.memory?.maxWindow ?? 20;
     const maxMemoryScopeCount = options.memory?.maxScopeCount ?? 50;
@@ -57,6 +61,42 @@ export const ChatsaltPlugin = definePlugin({
         maxWindow: maxMemoryWindow,
         maxScopeCount: maxMemoryScopeCount,
       });
+    }
+
+    function shouldTriggerChat(selfId: number, message: milky.IncomingMessage): boolean {
+      if (message.sender_id === selfId) {
+        return false;
+      }
+      if (message.message_scene === 'temp') {
+        return false;
+      }
+      if (message.message_scene === 'friend' && message.peer_id !== selfId) {
+        return true;
+      }
+      // group
+      if (message.message_scene === 'group') {
+        const [first] = message.segments;
+        if (!first) {
+          return false;
+        }
+        if (first.type === 'reply' && first.data.sender_id === selfId) {
+          return true;
+        }
+        if (message.segments.some((seg) => seg.type === 'mention' && seg.data.user_id === selfId)) {
+          return true;
+        }
+      }
+      // keyword trigger
+      if (triggerKeywords.length > 0) {
+        if (
+          message.segments.some(
+            (seg) => seg.type === 'text' && triggerKeywords.some((kw) => seg.data.text.includes(kw)),
+          )
+        ) {
+          return true;
+        }
+      }
+      return false;
     }
 
     ctx.on('message_receive', async ({ self_id, data }) => {

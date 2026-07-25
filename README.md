@@ -35,6 +35,12 @@ plugins:
     temperature: 0.7
     # 在调用工具时，最多允许的步骤数，默认值为 10
     maxToolSteps: 10
+    # 有关触发对话的配置项
+    trigger:
+      # 触发对话的关键词列表，若消息中包含这些关键词，则会触发对话
+      keywords:
+        # - salt
+        # - 机器人
     # 有关记忆的配置项
     memory:
       # 是否启用记忆功能，默认值为 true
