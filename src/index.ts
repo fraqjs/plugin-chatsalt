@@ -1,7 +1,6 @@
 import { definePlugin, msg, seg } from '@fraqjs/fraq';
-import { AiService, createResourceIndex, xmlifyThread } from '@fraqjs/plugin-ai';
+import { AiService, ai, createResourceIndex, xmlifyThread } from '@fraqjs/plugin-ai';
 import { KyselyService } from '@fraqjs/plugin-kysely';
-import { generateText, stepCountIs, type Tool } from 'ai';
 
 import { MemoryStore } from './memory';
 import { buildPrompt, buildSystemPrompt, extractSenderName } from './prompt';
@@ -90,7 +89,7 @@ export const ChatsaltPlugin = definePlugin({
         peerId: data.peer_id,
       };
 
-      const tools: Record<string, Tool> = {};
+      const tools: Record<string, ai.Tool> = {};
       tools.describe_image = describeImageTool({ ctx, thread, visionModel });
       tools.get_message = getMessageTool({
         ctx,
@@ -103,7 +102,7 @@ export const ChatsaltPlugin = definePlugin({
         Object.assign(tools, memoryTools(memoryStore, memoryScope));
       }
 
-      const { text, toolResults, content } = await generateText({
+      const { text, toolResults, content } = await ai.generateText({
         model: chatModel,
         system: buildSystemPrompt({
           selfId: self_id,
@@ -120,7 +119,7 @@ export const ChatsaltPlugin = definePlugin({
         }),
         tools: tools,
         temperature: temperature,
-        stopWhen: stepCountIs(maxToolSteps),
+        stopWhen: ai.stepCountIs(maxToolSteps),
       });
 
       for (const result of content) {

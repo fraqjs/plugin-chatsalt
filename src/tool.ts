@@ -1,6 +1,5 @@
 import type { Context } from '@fraqjs/fraq';
-import { type ResourceIndex, type XmlifyContext, xmlify } from '@fraqjs/plugin-ai';
-import { generateText, type LanguageModel, type Tool, tool } from 'ai';
+import { ai, type ResourceIndex, type XmlifyContext, xmlify } from '@fraqjs/plugin-ai';
 import z from 'zod';
 
 import type { MemoryScope, MemoryStore } from './memory';
@@ -15,11 +14,11 @@ function stringifyError(error: unknown): string {
 export interface DescribeImageToolOptions {
   ctx: Context;
   thread: XmlifyContext;
-  visionModel: LanguageModel;
+  visionModel: ai.LanguageModel;
 }
 
-export function describeImageTool({ ctx, thread, visionModel }: DescribeImageToolOptions): Tool {
-  return tool({
+export function describeImageTool({ ctx, thread, visionModel }: DescribeImageToolOptions): ai.Tool {
+  return ai.tool({
     description: '描述图片内容，或对图片内容提出特定的问题。',
     inputSchema: z.object({
       imageId: z.string().describe('图片的 id'),
@@ -33,7 +32,7 @@ export function describeImageTool({ ctx, thread, visionModel }: DescribeImageToo
 
       try {
         const question = input.question || '请描述这张图片的内容。';
-        const { text } = await generateText({
+        const { text } = await ai.generateText({
           model: visionModel,
           messages: [
             {
@@ -62,8 +61,8 @@ export interface GetMessageToolOptions {
   resourceIndex: ResourceIndex;
 }
 
-export function getMessageTool({ ctx, scene, peerId, thread, resourceIndex }: GetMessageToolOptions): Tool {
-  return tool({
+export function getMessageTool({ ctx, scene, peerId, thread, resourceIndex }: GetMessageToolOptions): ai.Tool {
+  return ai.tool({
     description: '获取指定消息的内容，包括合并转发消息的具体内容',
     inputSchema: z.object({
       seq: z.number().describe('消息的 seq'),
@@ -87,9 +86,9 @@ export function getMessageTool({ ctx, scene, peerId, thread, resourceIndex }: Ge
   });
 }
 
-export function memoryTools(store: MemoryStore, scope: MemoryScope): Record<'remember' | 'forget', Tool> {
+export function memoryTools(store: MemoryStore, scope: MemoryScope): Record<'remember' | 'forget', ai.Tool> {
   return {
-    remember: tool({
+    remember: ai.tool({
       description: '记住一条有关当前会话对象的记忆',
       inputSchema: z.object({
         content: z.string().describe('记忆的内容'),
@@ -99,7 +98,7 @@ export function memoryTools(store: MemoryStore, scope: MemoryScope): Record<'rem
         return { ok: true, result: entry };
       },
     }),
-    forget: tool({
+    forget: ai.tool({
       description: '忘记一条有关当前会话对象的记忆',
       inputSchema: z.object({
         id: z.number().describe('记忆的 ID'),

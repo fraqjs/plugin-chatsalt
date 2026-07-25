@@ -3,3 +3,5 @@ allowBuilds:
 
 minimumReleaseAgeExclude:
   - '@fraqjs/*'
+  - '@ai-sdk/anthropic@4.0.20'
+  - '@ai-sdk/google@4.0.24'

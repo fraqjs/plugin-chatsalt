@@ -1,10 +1,10 @@
 import 'dotenv/config';
 
 import { Context } from '@fraqjs/fraq';
-import { createSimpleLogHandler } from '@fraqjs/mock';
 import AiPlugin from '@fraqjs/plugin-ai';
 import KyselyPlugin from '@fraqjs/plugin-kysely';
 import MessageStorePlugin from '@fraqjs/plugin-message-store';
+import { createSimpleLogHandler } from '@fraqjs/plugin-mock';
 
 import ChatsaltPlugin from '../src';
 

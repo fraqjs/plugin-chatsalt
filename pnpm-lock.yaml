@@ -12,30 +12,24 @@ importers:
         specifier: ^0.14.0
         version: 0.14.0
       '@fraqjs/plugin-ai':
-        specifier: ^0.5.3
-        version: 0.5.3(@fraqjs/fraq@0.14.0)(ai@7.0.31(zod@4.4.3))
+        specifier: ^0.6.0
+        version: 0.6.0(@fraqjs/fraq@0.14.0)
       '@fraqjs/plugin-kysely':
         specifier: ^0.3.0
         version: 0.3.0(@fraqjs/fraq@0.14.0)
-      ai:
-        specifier: ^7.0.31
-        version: 7.0.31(zod@4.4.3)
       zod:
         specifier: ^4.4.3
         version: 4.4.3
     devDependencies:
-      '@ai-sdk/openai-compatible':
-        specifier: ^3.0.12
-        version: 3.0.12(zod@4.4.3)
       '@biomejs/biome':
         specifier: ^2.5.4
         version: 2.5.4
-      '@fraqjs/mock':
-        specifier: ^0.1.0
-        version: 0.1.0(@fraqjs/fraq@0.14.0)
       '@fraqjs/plugin-message-store':
         specifier: ^0.3.1
         version: 0.3.1(@fraqjs/fraq@0.14.0)(@fraqjs/plugin-kysely@0.3.0(@fraqjs/fraq@0.14.0))
+      '@fraqjs/plugin-mock':
+        specifier: ^0.1.0
+        version: 0.1.0(@fraqjs/fraq@0.14.0)
       '@types/node':
         specifier: ^24.13.3
         version: 24.13.3
@@ -57,20 +51,44 @@ importers:
 
 packages:
 
-  '@ai-sdk/gateway@4.0.23':
-    resolution: {integrity: sha512-f85diFdPMXYJpxCjOYZchMQkRH8h3r6lhK4Q2xmzJ7UA2OQ80L3W7tFu61742xGQK7zHWm5AhxYhNuc50H9SGQ==}
+  '@ai-sdk/anthropic@4.0.20':
+    resolution: {integrity: sha512-5QdZt6AkWIKIKuwRSjAQIBhN0JSSvthaIcAJKTHP7HPCvWMcNJFF6rz0uKfUlpI3h7nVbY+1Cy5dNl5zjzJ6qA==}
     engines: {node: '>=22'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/openai-compatible@3.0.12':
-    resolution: {integrity: sha512-tN9BUb4jUGjqtbRPUsziLxASfogLNICcq/Qrwr55vpnzKvprV6Ukl8ynED2lZaNrAHU5U4zlGnyU/iuYrjQK6g==}
+  '@ai-sdk/deepseek@3.0.13':
+    resolution: {integrity: sha512-sX05lJncM1xvZ8PBi3Lq2ixl9RScMcX6w9YbmkCE5Fp28g9t+tVNATEFy8aVWEInH7yxvdEL4M15/9Uq63ECpg==}
     engines: {node: '>=22'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/provider-utils@5.0.11':
-    resolution: {integrity: sha512-7/96wE+ZsKB35iS9ASyllrE4Ym/EolXEB7AkuJ5FI++fmS85BVTAs77890C+1Z2jwHfBKjBQSBmsliOsAh0iFQ==}
+  '@ai-sdk/gateway@4.0.28':
+    resolution: {integrity: sha512-ee9TsNO3mkgHDWmTmJ8Fvltr6PFh52zhrV2+FaKJY3F3iu7kWZi5tCRJCR1HVhhlpj6lHniUb28nLQdPHkA/1Q==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
+  '@ai-sdk/google@4.0.24':
+    resolution: {integrity: sha512-W+kTGb/RRe2SEYwbKcKYM3N2EQryS2Iqjgou6wPsyP/2BwBU7Q23CF6/YWE8k7xtseDLcSY59jsR2MDpY4azRg==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
+  '@ai-sdk/openai-compatible@3.0.14':
+    resolution: {integrity: sha512-nUl7dBHUDTqcnuWGnEbKMwDDqL94BxRfibLwYv8uWp+kZn8Zqdxy7tUBt4sv2hpHQi+S2P6bUyqW18xmbykErw==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
+  '@ai-sdk/openai@4.0.20':
+    resolution: {integrity: sha512-/Hu+btLIO2zuYqCp//vBBAGdM/BeN4gds+NWrlv7Y9WrcTXwnEEwh6P3QZIWh2Tt1I1lswuDIpAJ4t/c/rws3Q==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
+  '@ai-sdk/provider-utils@5.0.12':
+    resolution: {integrity: sha512-bbhlOgHeYwrIGheLkM6fhS8hVger8uFPmcOLg+kxc9EFh7y30XYorWhthlYAgpadO3SJhFZrIcEknN7qEqEVvA==}
     engines: {node: '>=22'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -305,17 +323,11 @@ packages:
     resolution: {integrity: sha512-oCVhcquY244zKen3OKD7xa/u49qSbWWTeUQajVaXDfWfklSMeCDTU+hbfXl+qo7gp1P4LQYXAGfyQYCJg8Y1kA==}
     engines: {node: '>=22'}
 
-  '@fraqjs/mock@0.1.0':
-    resolution: {integrity: sha512-Gzkfj/A6AIyaCwntQfXCTMhW3ztvq/dOrEoxLSJILEEKlb4J5petFGyQvRW8B4KFlcBgBx3BKVrEanr7uPUdrg==}
-    peerDependencies:
-      '@fraqjs/fraq': ^0.6.0
-
-  '@fraqjs/plugin-ai@0.5.3':
-    resolution: {integrity: sha512-a4rn8g1nXG+K2NpJfJgLdjM21UlTZOBJzfl1o64wwBa4r6CFMQa6am5g9fiFhhIUv/TCr3+ZtbjBfEwXzZgVaA==}
+  '@fraqjs/plugin-ai@0.6.0':
+    resolution: {integrity: sha512-y3qy9O7tqe/9vpjjM5bImFzVdUDHFEC0YfU9M6veNzbGGYlFQMM5TxDd0jRjsQAYnU0+83olXEn70fzBsSfMUA==}
     engines: {node: '>=22'}
     peerDependencies:
       '@fraqjs/fraq': ^0.14.0
-      ai: ^7.0.0
 
   '@fraqjs/plugin-kysely@0.3.0':
     resolution: {integrity: sha512-m7QUbLAfxYF9GQROEUaRb3/hm7DRTgOWXv1du7XRE3UyqUcilGSVszbIQFVF4hU2zwjFmZsLv/2T3Me7xSMI8A==}
@@ -328,6 +340,12 @@ packages:
     peerDependencies:
       '@fraqjs/fraq': ^0.14.0
       '@fraqjs/plugin-kysely': ^0.2.2
+
+  '@fraqjs/plugin-mock@0.1.0':
+    resolution: {integrity: sha512-MkdviYMZjh4JRfCuKMePtG+T4EDuqlg+aGIAITzM0iFV3uYYepzOuacgxanxKqKfSZcIPb5wD64lIswsfjyaJg==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      '@fraqjs/fraq': ^0.14.0
 
   '@napi-rs/wasm-runtime@1.1.6':
     resolution: {integrity: sha512-ZLv/JdUfkvOy9eCnnBaGfiO+XimbjebAeO+MRQqD/B+FR1tnRN0tpKSJHRbE8sFfS6aqsXZ67TQjfwfsxULVbg==}
@@ -580,8 +598,8 @@ packages:
   '@yuku-toolchain/types@0.7.0':
     resolution: {integrity: sha512-kKleXJmXcZnJ5LUDTeYvK350SB+BXdpoHUwT78GGyOXOhCZ0tWf+seDPAvVnCrjoJhf+FhqtR5HRUfWW+yILQw==}
 
-  ai@7.0.31:
-    resolution: {integrity: sha512-pJfwKXjF5kw0rKRTePwYo60EfWb8wfzJAgf3ojln/YkOsVVKttzZAJVcRPsg37Z3a06ZdKkxX+DSrMAFlPm5Mw==}
+  ai@7.0.37:
+    resolution: {integrity: sha512-stF+SEQJgKY3Qfe3FwNzqUrehHviOp2l7LemoI8YMOa0Zk5PxKsRNgUk3cHXz0RAue9RRyCAis2fz6LSCP6EKw==}
     engines: {node: '>=22'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -811,20 +829,44 @@ packages:
 
 snapshots:
 
-  '@ai-sdk/gateway@4.0.23(zod@4.4.3)':
+  '@ai-sdk/anthropic@4.0.20(zod@4.4.3)':
     dependencies:
       '@ai-sdk/provider': 4.0.3
-      '@ai-sdk/provider-utils': 5.0.11(zod@4.4.3)
+      '@ai-sdk/provider-utils': 5.0.12(zod@4.4.3)
+      zod: 4.4.3
+
+  '@ai-sdk/deepseek@3.0.13(zod@4.4.3)':
+    dependencies:
+      '@ai-sdk/provider': 4.0.3
+      '@ai-sdk/provider-utils': 5.0.12(zod@4.4.3)
+      zod: 4.4.3
+
+  '@ai-sdk/gateway@4.0.28(zod@4.4.3)':
+    dependencies:
+      '@ai-sdk/provider': 4.0.3
+      '@ai-sdk/provider-utils': 5.0.12(zod@4.4.3)
       '@vercel/oidc': 3.2.0
       zod: 4.4.3
 
-  '@ai-sdk/openai-compatible@3.0.12(zod@4.4.3)':
+  '@ai-sdk/google@4.0.24(zod@4.4.3)':
     dependencies:
       '@ai-sdk/provider': 4.0.3
-      '@ai-sdk/provider-utils': 5.0.11(zod@4.4.3)
+      '@ai-sdk/provider-utils': 5.0.12(zod@4.4.3)
       zod: 4.4.3
 
-  '@ai-sdk/provider-utils@5.0.11(zod@4.4.3)':
+  '@ai-sdk/openai-compatible@3.0.14(zod@4.4.3)':
+    dependencies:
+      '@ai-sdk/provider': 4.0.3
+      '@ai-sdk/provider-utils': 5.0.12(zod@4.4.3)
+      zod: 4.4.3
+
+  '@ai-sdk/openai@4.0.20(zod@4.4.3)':
+    dependencies:
+      '@ai-sdk/provider': 4.0.3
+      '@ai-sdk/provider-utils': 5.0.12(zod@4.4.3)
+      zod: 4.4.3
+
+  '@ai-sdk/provider-utils@5.0.12(zod@4.4.3)':
     dependencies:
       '@ai-sdk/provider': 4.0.3
       '@standard-schema/spec': 1.1.0
@@ -969,14 +1011,16 @@ snapshots:
     dependencies:
       mitt: 3.0.1
 
-  '@fraqjs/mock@0.1.0(@fraqjs/fraq@0.14.0)':
+  '@fraqjs/plugin-ai@0.6.0(@fraqjs/fraq@0.14.0)':
     dependencies:
+      '@ai-sdk/anthropic': 4.0.20(zod@4.4.3)
+      '@ai-sdk/deepseek': 3.0.13(zod@4.4.3)
+      '@ai-sdk/google': 4.0.24(zod@4.4.3)
+      '@ai-sdk/openai': 4.0.20(zod@4.4.3)
+      '@ai-sdk/openai-compatible': 3.0.14(zod@4.4.3)
+      '@ai-sdk/provider': 4.0.3
       '@fraqjs/fraq': 0.14.0
-
-  '@fraqjs/plugin-ai@0.5.3(@fraqjs/fraq@0.14.0)(ai@7.0.31(zod@4.4.3))':
-    dependencies:
-      '@fraqjs/fraq': 0.14.0
-      ai: 7.0.31(zod@4.4.3)
+      ai: 7.0.37(zod@4.4.3)
       dom-serializer: 3.1.1
       domhandler: 6.0.1
       htmlparser2: 12.0.0
@@ -992,6 +1036,10 @@ snapshots:
     dependencies:
       '@fraqjs/fraq': 0.14.0
       '@fraqjs/plugin-kysely': 0.3.0(@fraqjs/fraq@0.14.0)
+
+  '@fraqjs/plugin-mock@0.1.0(@fraqjs/fraq@0.14.0)':
+    dependencies:
+      '@fraqjs/fraq': 0.14.0
 
   '@napi-rs/wasm-runtime@1.1.6(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)':
     dependencies:
@@ -1140,11 +1188,11 @@ snapshots:
 
   '@yuku-toolchain/types@0.7.0': {}
 
-  ai@7.0.31(zod@4.4.3):
+  ai@7.0.37(zod@4.4.3):
     dependencies:
-      '@ai-sdk/gateway': 4.0.23(zod@4.4.3)
+      '@ai-sdk/gateway': 4.0.28(zod@4.4.3)
       '@ai-sdk/provider': 4.0.3
-      '@ai-sdk/provider-utils': 5.0.11(zod@4.4.3)
+      '@ai-sdk/provider-utils': 5.0.12(zod@4.4.3)
       zod: 4.4.3
 
   ansis@4.3.1: {}
