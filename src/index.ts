@@ -223,8 +223,8 @@ export const ChatsaltPlugin = definePlugin({
       session.reply(msg`
 ===== Chatsalt 信息 =====
 版本: ${pkg.version}
-对话模型: ${options.chatModel ?? stringifyModel(chatModel)}
-视觉模型: ${options.visionModel ?? stringifyModel(visionModel)}
+对话模型: ${stringifyModel(chatModel)}
+视觉模型: ${stringifyModel(visionModel)}
       `);
     });
   },
