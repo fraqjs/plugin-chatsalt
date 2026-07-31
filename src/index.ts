@@ -2,6 +2,7 @@ import { definePlugin, type milky, msg, seg } from '@fraqjs/fraq';
 import { AiService, ai, createResourceIndex, xmlifyThread } from '@fraqjs/plugin-ai';
 import { KyselyService } from '@fraqjs/plugin-kysely';
 
+import pkg from '../package.json';
 import { MemoryStore } from './memory';
 import { buildPrompt, buildSystemPrompt, extractSenderName } from './prompt';
 import { describeImageTool, getMessageTool, memoryTools } from './tool';
@@ -29,6 +30,13 @@ export interface ChatsaltPluginOptions {
     respondRejectedMessages?: boolean;
     logAllToolCalls?: boolean;
   };
+}
+
+function stringifyModel(model: ai.LanguageModel | ai.ImageModel) {
+  if (typeof model === 'string') {
+    return model;
+  }
+  return model.modelId;
 }
 
 export const ChatsaltPlugin = definePlugin({
@@ -207,6 +215,17 @@ export const ChatsaltPlugin = definePlugin({
           });
           break;
       }
+    });
+
+    const chatsalt = ctx.router.group('chatsalt');
+
+    chatsalt.command('inspect').execute(async (session) => {
+      session.reply(msg`
+===== Chatsalt 信息 =====
+版本: ${pkg.version}
+对话模型: ${options.chatModel ?? stringifyModel(chatModel)}
+视觉模型: ${options.visionModel ?? stringifyModel(visionModel)}
+      `);
     });
   },
 });
