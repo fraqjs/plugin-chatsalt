@@ -1,7 +1,7 @@
 {
   "name": "fraq-plugin-chatsalt",
   "type": "module",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "通用 AI 对话插件",
   "files": [
     "dist"
@@ -22,8 +22,8 @@
   "packageManager": "pnpm@11.9.0",
   "devDependencies": {
     "@biomejs/biome": "^2.5.4",
-    "@fraqjs/plugin-message-store": "^0.3.1",
-    "@fraqjs/plugin-mock": "^0.1.0",
+    "@fraqjs/plugin-message-store": "^0.4.0",
+    "@fraqjs/plugin-mock": "^0.2.0",
     "@types/node": "^24.13.3",
     "dotenv": "^17.4.2",
     "kysely": "^0.29.4",
@@ -32,9 +32,9 @@
     "typescript": "^6.0.3"
   },
   "peerDependencies": {
-    "@fraqjs/fraq": "^0.14.0",
-    "@fraqjs/plugin-ai": "^0.6.0",
-    "@fraqjs/plugin-kysely": "^0.3.0",
+    "@fraqjs/fraq": "^0.16.0",
+    "@fraqjs/plugin-ai": "^0.7.0",
+    "@fraqjs/plugin-kysely": "^0.4.0",
     "zod": "^4.4.3"
   },
   "fraq": {
