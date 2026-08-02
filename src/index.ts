@@ -8,7 +8,6 @@ import { ActivityRegistry, summarizeMessage } from './activity';
 import { MemoryStore } from './memory';
 import { buildConversationContext, buildPrompt, buildSystemPrompt, extractSenderName } from './prompt';
 import { describeImageTool, getMessageTool, memoryTools } from './tool';
-import { mountChatsaltWebui } from './webui';
 
 export interface ChatsaltPluginOptions {
   persona: string;
@@ -110,7 +109,23 @@ export const ChatsaltPlugin = definePlugin({
     });
     const memoryRecordLimit = options.webui?.memoryLimit ?? 500;
     if (ctx.webui && (options.webui?.enabled ?? true)) {
-      mountChatsaltWebui(ctx.webui, activity, memoryStore, { memoryLimit: memoryRecordLimit });
+      ctx.webui.mount({
+        assets: new URL('../dist/webui', import.meta.url),
+        routes(api) {
+          api.get('/activity', (c) =>
+            c.json({
+              conversations: activity.listConversations(),
+              warnings: activity.listWarnings(),
+            }),
+          );
+          api.get('/memories', async (c) =>
+            c.json({
+              enabled: memoryStore !== undefined,
+              memories: (await memoryStore?.list(memoryRecordLimit)) ?? [],
+            }),
+          );
+        },
+      });
       ctx.logger.info('Chatsalt WebUI registered at /webui/chatsalt/');
     }
 

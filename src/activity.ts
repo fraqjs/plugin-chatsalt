@@ -39,12 +39,6 @@ export interface ActivityRegistryOptions {
 type NewConversationRecord = Omit<ConversationRecord, 'id' | 'createdAt'> & { createdAt?: number };
 type NewWarningRecord = Omit<WarningRecord, 'id' | 'createdAt'> & { createdAt?: number };
 
-function checkLimit(name: string, limit: number): void {
-  if (!Number.isSafeInteger(limit) || limit < 0) {
-    throw new RangeError(`${name} must be a non-negative safe integer`);
-  }
-}
-
 function pushBounded<T>(records: T[], record: T, limit: number): void {
   if (limit === 0) {
     return;
@@ -101,10 +95,7 @@ export class ActivityRegistry {
   private nextConversationId = 1;
   private nextWarningId = 1;
 
-  constructor(private readonly options: ActivityRegistryOptions) {
-    checkLimit('conversationLimit', options.conversationLimit);
-    checkLimit('warningLimit', options.warningLimit);
-  }
+  constructor(private readonly options: ActivityRegistryOptions) {}
 
   recordConversation(record: NewConversationRecord): ConversationRecord {
     const stored = {
