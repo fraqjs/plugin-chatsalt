@@ -3,13 +3,16 @@ import type { milky } from '@fraqjs/fraq';
 import type { MemoryEntry } from './memory';
 
 export interface SystemPromptOptions {
+  persona: string;
+  memoryEnabled: boolean;
+  extraPrompt?: string;
+}
+
+export interface ConversationContextOptions {
   selfId: number;
   scene: 'friend' | 'group';
   senderId: number;
   senderName: string;
-  persona: string;
-  memoryEnabled: boolean;
-  extraPrompt?: string;
 }
 
 export interface PromptOptions {
@@ -29,15 +32,6 @@ export function extractSenderName(message: milky.IncomingMessage): string {
 
 export function buildSystemPrompt(options: SystemPromptOptions): string {
   const components: string[] = [];
-
-  components.push(
-    '# 场景',
-    `
-你的 QQ 号是 ${options.selfId}。
-当前的会话场景是 ${options.scene === 'friend' ? '好友' : '群聊'}。
-当前说话人为“${options.senderName}”，QQ 号为 ${options.senderId}。
-    `.trim(),
-  );
 
   components.push('# 人设', options.persona);
 
@@ -91,9 +85,10 @@ no_reply (用户的提问涉及 xxx，不该回答)
     `.trim(),
   );
 
-  components.push(
-    '# 记忆说明',
-    `
+  if (options.memoryEnabled) {
+    components.push(
+      '# 记忆说明',
+      `
 系统会提供一份 <memories> 列表，是你对当前会话/对方已保存的长期记忆。
 写回复前先扫一遍；能用记忆就自然用上，但不要主动炫耀“我记得你”。
 
@@ -118,14 +113,26 @@ no_reply (用户的提问涉及 xxx，不该回答)
 - 明显过时或重复的条目。
 
 没有值得记录或删除的内容时，不要调用工具。
-    `.trim(),
-  );
+      `.trim(),
+    );
+  }
 
   if (options.extraPrompt) {
     components.push('# 其他提示', options.extraPrompt);
   }
 
   return components.join('\n\n');
+}
+
+export function buildConversationContext(options: ConversationContextOptions): string {
+  return [
+    '# 场景',
+    `
+你的 QQ 号是 ${options.selfId}。
+当前的会话场景是 ${options.scene === 'friend' ? '好友' : '群聊'}。
+当前说话人为“${options.senderName}”，QQ 号为 ${options.senderId}。
+    `.trim(),
+  ].join('\n\n');
 }
 
 export function buildPrompt(options: PromptOptions) {

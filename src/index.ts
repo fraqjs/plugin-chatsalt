@@ -4,7 +4,7 @@ import { KyselyService } from '@fraqjs/plugin-kysely';
 
 import pkg from '../package.json';
 import { MemoryStore } from './memory';
-import { buildPrompt, buildSystemPrompt, extractSenderName } from './prompt';
+import { buildConversationContext, buildPrompt, buildSystemPrompt, extractSenderName } from './prompt';
 import { describeImageTool, getMessageTool, memoryTools } from './tool';
 
 export interface ChatsaltPluginOptions {
@@ -62,6 +62,20 @@ export const ChatsaltPlugin = definePlugin({
 
     const debug_respondRejectedMessages = options.debug?.respondRejectedMessages ?? false;
     const debug_logAllToolCalls = options.debug?.logAllToolCalls ?? false;
+
+    const systemPrompt: ai.SystemModelMessage = {
+      role: 'system',
+      content: buildSystemPrompt({
+        persona: options.persona,
+        memoryEnabled,
+        extraPrompt: options.extraPrompt,
+      }),
+      providerOptions: {
+        anthropic: {
+          cacheControl: { type: 'ephemeral' },
+        },
+      },
+    };
 
     let memoryStore: MemoryStore | undefined;
     if (memoryEnabled) {
@@ -152,15 +166,18 @@ export const ChatsaltPlugin = definePlugin({
 
       const { text, toolResults, content } = await ai.generateText({
         model: chatModel,
-        system: buildSystemPrompt({
-          selfId: self_id,
-          scene: data.message_scene,
-          senderId: data.sender_id,
-          senderName: extractSenderName(data),
-          persona: options.persona,
-          memoryEnabled: memoryEnabled,
-          extraPrompt: options.extraPrompt,
-        }),
+        system: [
+          systemPrompt,
+          {
+            role: 'system',
+            content: buildConversationContext({
+              selfId: self_id,
+              scene: data.message_scene,
+              senderId: data.sender_id,
+              senderName: extractSenderName(data),
+            }),
+          },
+        ],
         prompt: buildPrompt({
           thread: thread.xmlContent,
           memories: await memoryStore?.recall(memoryScope),
