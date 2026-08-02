@@ -6,7 +6,7 @@ import { fileURLToPath, URL } from 'node:url';
 
 export default defineConfig({
   root: 'webui',
-  base: './',
+  base: '/webui/chatsalt/',
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
