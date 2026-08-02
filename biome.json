@@ -55,6 +55,14 @@
       "formatter": {
         "lineWidth": 80
       }
+    },
+    {
+      "includes": ["webui/**/*.css"],
+      "css": {
+        "parser": {
+          "tailwindDirectives": true
+        }
+      }
     }
   ]
 }

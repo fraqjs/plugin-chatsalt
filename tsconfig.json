@@ -6,6 +6,9 @@
     "lib": ["ESNext"],
     "skipLibCheck": true,
     "moduleResolution": "bundler",
+    "paths": {
+      "@/*": ["./webui/src/*"]
+    },
     "allowImportingTsExtensions": false,
     "allowSyntheticDefaultImports": true,
     "resolveJsonModule": true,
@@ -14,5 +17,6 @@
     "strict": true,
     "noFallthroughCasesInSwitch": true,
     "types": ["node"]
-  }
+  },
+  "include": ["src", "test", "tsdown.config.ts"]
 }

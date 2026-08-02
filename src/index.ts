@@ -1,11 +1,14 @@
-import { definePlugin, type milky, msg, seg } from '@fraqjs/fraq';
+import { definePlugin, type milky, msg, seg, serviceToken } from '@fraqjs/fraq';
 import { AiService, ai, createResourceIndex, xmlifyThread } from '@fraqjs/plugin-ai';
 import { KyselyService } from '@fraqjs/plugin-kysely';
+import type { WebuiGatewayService } from '@fraqjs/plugin-webui-gateway';
 
 import pkg from '../package.json';
+import { ActivityRegistry, summarizeMessage } from './activity';
 import { MemoryStore } from './memory';
 import { buildConversationContext, buildPrompt, buildSystemPrompt, extractSenderName } from './prompt';
 import { describeImageTool, getMessageTool, memoryTools } from './tool';
+import { mountChatsaltWebui } from './webui';
 
 export interface ChatsaltPluginOptions {
   persona: string;
@@ -25,6 +28,12 @@ export interface ChatsaltPluginOptions {
     maxWindow?: number;
     maxScopeCount?: number;
   };
+  webui?: {
+    enabled?: boolean;
+    conversationLimit?: number;
+    warningLimit?: number;
+    memoryLimit?: number;
+  };
 
   debug?: {
     respondRejectedMessages?: boolean;
@@ -39,11 +48,21 @@ function stringifyModel(model: ai.LanguageModel | ai.ImageModel) {
   return model.modelId;
 }
 
+function stringifyError(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return String(error);
+}
+
 export const ChatsaltPlugin = definePlugin({
   name: 'chatsalt',
   inject: {
     ai: AiService,
     kysely: KyselyService,
+  },
+  optionalInject: {
+    webui: serviceToken<WebuiGatewayService>('fraqjs/webui-gateway/WebuiGatewayService'),
   },
   apply(ctx, options: ChatsaltPluginOptions) {
     const chatModel = ctx.ai.model(options.chatModel);
@@ -83,6 +102,16 @@ export const ChatsaltPlugin = definePlugin({
         maxWindow: maxMemoryWindow,
         maxScopeCount: maxMemoryScopeCount,
       });
+    }
+
+    const activity = new ActivityRegistry({
+      conversationLimit: options.webui?.conversationLimit ?? 100,
+      warningLimit: options.webui?.warningLimit ?? 100,
+    });
+    const memoryRecordLimit = options.webui?.memoryLimit ?? 500;
+    if (ctx.webui && (options.webui?.enabled ?? true)) {
+      mountChatsaltWebui(ctx.webui, activity, memoryStore, { memoryLimit: memoryRecordLimit });
+      ctx.logger.info('Chatsalt WebUI registered at /webui/chatsalt/');
     }
 
     function shouldTriggerChat(selfId: number, message: milky.IncomingMessage): boolean {
@@ -129,108 +158,154 @@ export const ChatsaltPlugin = definePlugin({
         return;
       }
 
-      if (data.message_scene === 'group') {
-        // Send a reaction to indicate that the message is being processed
-        await ctx.client.send_group_message_reaction({
-          group_id: data.peer_id,
-          message_seq: data.message_seq,
-          reaction: '424',
-        });
-      }
-
-      const resourceIndex = createResourceIndex();
-      const { messages } = await ctx.client.get_history_messages({
-        message_scene: data.message_scene,
-        peer_id: data.peer_id,
-        limit: contextWindow,
-      });
-      const thread = await xmlifyThread(ctx, messages, { maxForwardDepth, resourceIndex });
-      const memoryScope = {
+      const senderName = extractSenderName(data);
+      const recordContext = {
         selfId: self_id,
         scene: data.message_scene,
         peerId: data.peer_id,
+        senderId: data.sender_id,
+        senderName,
+        messageSeq: data.message_seq,
       };
 
-      const tools: Record<string, ai.Tool> = {};
-      tools.describe_image = describeImageTool({ ctx, thread, visionModel });
-      tools.get_message = getMessageTool({
-        ctx,
-        scene: data.message_scene,
-        peerId: data.peer_id,
-        thread,
-        resourceIndex,
-      });
-      if (memoryStore) {
-        Object.assign(tools, memoryTools(memoryStore, memoryScope));
-      }
-
-      const { text, toolResults, content } = await ai.generateText({
-        model: chatModel,
-        system: [
-          systemPrompt,
-          {
-            role: 'system',
-            content: buildConversationContext({
-              selfId: self_id,
-              scene: data.message_scene,
-              senderId: data.sender_id,
-              senderName: extractSenderName(data),
-            }),
-          },
-        ],
-        prompt: buildPrompt({
-          thread: thread.xmlContent,
-          memories: await memoryStore?.recall(memoryScope),
-        }),
-        tools: tools,
-        temperature: temperature,
-        stopWhen: ai.stepCountIs(maxToolSteps),
-      });
-
-      for (const result of content) {
-        if (result.type === 'tool-error') {
-          ctx.logger.warn(`Tool call (${result.toolName}) failed`, result.error);
+      try {
+        if (data.message_scene === 'group') {
+          // Send a reaction to indicate that the message is being processed
+          await ctx.client.send_group_message_reaction({
+            group_id: data.peer_id,
+            message_seq: data.message_seq,
+            reaction: '424',
+          });
         }
-      }
 
-      if (debug_logAllToolCalls) {
-        if (toolResults.length > 0) {
-          for (const result of toolResults) {
-            ctx.logger.debug(
-              `Tool call (${result.toolName}): ${JSON.stringify(result.input)} -> ${JSON.stringify(result.output)}`,
-            );
-          }
+        const resourceIndex = createResourceIndex();
+        const { messages } = await ctx.client.get_history_messages({
+          message_scene: data.message_scene,
+          peer_id: data.peer_id,
+          limit: contextWindow,
+        });
+        const thread = await xmlifyThread(ctx, messages, { maxForwardDepth, resourceIndex });
+        const memoryScope = {
+          selfId: self_id,
+          scene: data.message_scene,
+          peerId: data.peer_id,
+        };
+
+        const tools: Record<string, ai.Tool> = {};
+        tools.describe_image = describeImageTool({ ctx, thread, visionModel });
+        tools.get_message = getMessageTool({
+          ctx,
+          scene: data.message_scene,
+          peerId: data.peer_id,
+          thread,
+          resourceIndex,
+        });
+        if (memoryStore) {
+          Object.assign(tools, memoryTools(memoryStore, memoryScope));
         }
-      }
 
-      if (!debug_respondRejectedMessages) {
-        if (text.startsWith('no_reply')) {
-          ctx.logger.warn(`Rejected message from ${data.sender_id} in ${data.message_scene} ${data.peer_id}: ${text}`);
-          if (data.message_scene === 'group') {
-            // Send a reaction to indicate that the message was rejected
-            await ctx.client.send_group_message_reaction({
-              group_id: data.peer_id,
-              message_seq: data.message_seq,
-              reaction: '479',
+        const { text, toolResults, content } = await ai.generateText({
+          model: chatModel,
+          system: [
+            systemPrompt,
+            {
+              role: 'system',
+              content: buildConversationContext({
+                selfId: self_id,
+                scene: data.message_scene,
+                senderId: data.sender_id,
+                senderName,
+              }),
+            },
+          ],
+          prompt: buildPrompt({
+            thread: thread.xmlContent,
+            memories: await memoryStore?.recall(memoryScope),
+          }),
+          tools: tools,
+          temperature: temperature,
+          stopWhen: ai.stepCountIs(maxToolSteps),
+        });
+
+        for (const result of content) {
+          if (result.type === 'tool-error') {
+            ctx.logger.warn(`Tool call (${result.toolName}) failed`, result.error);
+            activity.recordWarning({
+              ...recordContext,
+              kind: 'tool',
+              message: `工具 ${result.toolName} 调用失败`,
+              detail: stringifyError(result.error),
             });
           }
-          return;
         }
-      }
 
-      switch (data.message_scene) {
-        case 'friend':
-          await ctx.client.send_private_message({
-            user_id: data.sender_id,
-            message: msg`${seg.reply(data.message_seq)}${text}`,
-          });
-          break;
-        case 'group':
-          await ctx.client.send_group_message({
-            group_id: data.peer_id,
-            message: msg`${seg.reply(data.message_seq)}${text}`,
-          });
-          break;
+        if (debug_logAllToolCalls) {
+          if (toolResults.length > 0) {
+            for (const result of toolResults) {
+              ctx.logger.debug(
+                `Tool call (${result.toolName}): ${JSON.stringify(result.input)} -> ${JSON.stringify(result.output)}`,
+              );
+            }
+          }
+        }
+
+        if (!debug_respondRejectedMessages) {
+          if (text.startsWith('no_reply')) {
+            ctx.logger.warn(
+              `Rejected message from ${data.sender_id} in ${data.message_scene} ${data.peer_id}: ${text}`,
+            );
+            activity.recordConversation({
+              ...recordContext,
+              input: summarizeMessage(data),
+              output: text,
+              outcome: 'rejected',
+            });
+            activity.recordWarning({
+              ...recordContext,
+              kind: 'rejected',
+              message: '模型拒绝回复',
+              detail: text,
+            });
+            if (data.message_scene === 'group') {
+              // Send a reaction to indicate that the message was rejected
+              await ctx.client.send_group_message_reaction({
+                group_id: data.peer_id,
+                message_seq: data.message_seq,
+                reaction: '479',
+              });
+            }
+            return;
+          }
+        }
+
+        switch (data.message_scene) {
+          case 'friend':
+            await ctx.client.send_private_message({
+              user_id: data.sender_id,
+              message: msg`${seg.reply(data.message_seq)}${text}`,
+            });
+            break;
+          case 'group':
+            await ctx.client.send_group_message({
+              group_id: data.peer_id,
+              message: msg`${seg.reply(data.message_seq)}${text}`,
+            });
+            break;
+        }
+        activity.recordConversation({
+          ...recordContext,
+          input: summarizeMessage(data),
+          output: text,
+          outcome: 'replied',
+        });
+      } catch (error) {
+        activity.recordWarning({
+          ...recordContext,
+          kind: 'generation',
+          message: '对话处理失败',
+          detail: stringifyError(error),
+        });
+        throw error;
       }
     });
 

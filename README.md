@@ -16,6 +16,9 @@ plugins:
   # 推荐配合 fraqjs/message-store 插件使用，以便在数据库中持久化消息，减少远程拉取消息上下文的次数
   fraqjs/message-store:
     # 在这里传入 MessageStorePlugin 的配置选项
+  # 可选。安装后 chatsalt 会自动注册 WebUI；未安装时不影响对话功能
+  fraqjs/webui-gateway:
+    accessToken: ${{ env:FRAQ_WEBUI_TOKEN }}
   chatsalt:
     # 角色设定文本，推荐使用 Markdown 格式，并且保存在另一个文件中以保持配置文件可读性。
     # 这里的配置表示从 persona.md 文件中读取角色设定文本
@@ -49,7 +52,20 @@ plugins:
       maxWindow: 20
       # 对于每个对话场景，最多允许的记忆条数，默认值为 50
       maxScopeCount: 50
+    # WebUI 的内存记录与查询上限
+    webui:
+      # 是否注册 WebUI，默认值为 true
+      enabled: true
+      # 内存中最多保留的对话记录数，默认值为 100
+      conversationLimit: 100
+      # 内存中最多保留的警告记录数，默认值为 100
+      warningLimit: 100
+      # WebUI 最多查询的记忆条数，默认值为 500
+      memoryLimit: 500
 ```
+
+安装并配置 `fraqjs/webui-gateway` 后，可通过 `/webui/chatsalt/` 查看对话、警告和记忆记录。WebUI 由
+Gateway 统一鉴权；如果未安装 Gateway，Chatsalt 不会注册任何 WebUI 路由。
 
 ## 编写人设
 

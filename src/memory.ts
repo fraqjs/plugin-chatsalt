@@ -69,6 +69,16 @@ export class MemoryStore {
     return rows.toReversed();
   }
 
+  async list(limit: number): Promise<MemoryEntry[]> {
+    return await this.kysely.db
+      .selectFrom(MEMORY_TABLE)
+      .selectAll()
+      .orderBy('created_at', 'desc')
+      .orderBy('id', 'desc')
+      .limit(limit)
+      .execute();
+  }
+
   async remember(scope: MemoryScope, content: string): Promise<MemoryEntry> {
     const now = Date.now();
     const trimmed = content.trim();
