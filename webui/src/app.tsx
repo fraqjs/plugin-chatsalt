@@ -63,7 +63,7 @@ interface DashboardData {
   memoryEnabled: boolean;
 }
 
-const apiBase = import.meta.env.DEV ? '/webui/chatsalt/api/' : 'api/';
+const apiBase = '/webui/chatsalt/api/';
 
 function formatTime(timestamp: number): string {
   return new Intl.DateTimeFormat('zh-CN', {
