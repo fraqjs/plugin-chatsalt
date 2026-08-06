@@ -230,7 +230,7 @@ export const ChatsaltPlugin = definePlugin({
           tools.external_web_search = externalWebSearchTool({ ctx, model: externalWebSearchModel });
         }
 
-        const { text, toolResults, content } = await ai.generateText({
+        const { text } = await ai.generateText({
           model: chatModel,
           system: [
             systemPrompt,
@@ -251,29 +251,30 @@ export const ChatsaltPlugin = definePlugin({
           tools: tools,
           temperature: temperature,
           stopWhen: ai.stepCountIs(maxToolSteps),
-        });
-
-        for (const result of content) {
-          if (result.type === 'tool-error') {
-            ctx.logger.warn(`Tool call (${result.toolName}) failed`, result.error);
-            activity.recordWarning({
-              ...recordContext,
-              kind: 'tool',
-              message: `工具 ${result.toolName} 调用失败`,
-              detail: stringifyError(result.error),
-            });
-          }
-        }
-
-        if (debug_logAllToolCalls) {
-          if (toolResults.length > 0) {
-            for (const result of toolResults) {
-              ctx.logger.debug(
-                `Tool call (${result.toolName}): ${JSON.stringify(result.input)} -> ${JSON.stringify(result.output)}`,
-              );
+          onToolExecutionStart: (e) => {
+            if (debug_logAllToolCalls) {
+              ctx.logger.debug(`Tool call (${e.toolCall.toolName}) <- ${JSON.stringify(e.toolCall.input)}`);
             }
-          }
-        }
+          },
+          onToolExecutionEnd: (e) => {
+            if (e.toolOutput.type === 'tool-error') {
+              ctx.logger.warn(`Tool call (${e.toolCall.toolName}) failed`, e.toolOutput.error);
+              activity.recordWarning({
+                ...recordContext,
+                kind: 'tool',
+                message: `工具 ${e.toolCall.toolName} 调用失败`,
+                detail: stringifyError(e.toolOutput.error),
+              });
+            } else {
+              // toolOutput.type === 'tool-success'
+              if (debug_logAllToolCalls) {
+                ctx.logger.debug(
+                  `Tool call (${e.toolCall.toolName}) -> ${JSON.stringify(e.toolOutput.output)} (${e.toolExecutionMs}ms)`,
+                );
+              }
+            }
+          },
+        });
 
         if (!debug_respondRejectedMessages) {
           if (text.trimStart().startsWith('no_reply')) {
