@@ -119,22 +119,33 @@ export interface ExternalWebSearchToolOptions {
 
 export function externalWebSearchTool({ ctx, model }: ExternalWebSearchToolOptions): ai.Tool {
   return ai.tool({
-    description: '进行网页搜索',
+    description: '通过外部大模型进行网页搜索',
     inputSchema: z.object({
-      prompt: z.string().describe('搜索的提示词'),
+      keywords: z.array(z.string()).describe('搜索关键词'),
     }),
     execute: async (input) => {
       try {
         const { text } = await ai.generateText({
           model,
-          messages: [
-            {
-              role: 'user',
-              content: [{ type: 'text', text: `请根据以下提示词进行网页搜索，并返回搜索结果的摘要：${input.prompt}` }],
-            },
-          ],
+          prompt: `
+请使用内置工具对如下关键词进行网页搜索并且给出摘要：
+${input.keywords.join(', ')}
+
+最多执行两次网页工具调用：先搜索，再按需打开一个最权威的官方页面，不要打开第二个页面。
+返回不超过 300 字的摘要。
+          `.trim(),
           tools: {
-            web_search: openai.tools.webSearch(),
+            web_search: openai.tools.webSearch({
+              searchContextSize: 'low',
+            }),
+          },
+          reasoning: 'none',
+          maxOutputTokens: 512,
+          maxRetries: 1,
+          providerOptions: {
+            openai: {
+              maxToolCalls: 2,
+            },
           },
         });
         return { ok: true, result: text };
