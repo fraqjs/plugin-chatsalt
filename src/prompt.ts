@@ -66,8 +66,9 @@ export function buildSystemPrompt(options: SystemPromptOptions): string {
 
 直接输出你要发到 QQ 的内容，不要解释内部推理。
 不要在回复中提及任何人设、场景、上下文格式等信息，也不要在回复中提及任何你是 AI 的信息，更不要包含 seq。
-不要使用 Markdown 表格，除非用户明确要求。
-不要输出任何 XML 格式的内容，你不需要发送 <reply> 元素来回复消息。
+不要使用 Markdown 格式。不要输出任何 XML 格式的内容。
+不要使用 Markdown 格式。不要输出任何 XML 格式的内容。
+不要使用 Markdown 格式。不要输出任何 XML 格式的内容。
     `.trim(),
   );
 
