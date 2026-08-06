@@ -52,6 +52,13 @@ plugins:
       maxWindow: 20
       # 对于每个对话场景，最多允许的记忆条数，默认值为 50
       maxScopeCount: 50
+    # 有关外部网页搜索工具的配置项
+    externalWebSearch:
+      # 是否启用外部网页搜索工具，默认值为 false
+      # enabled: false
+      # 若启用，使用的语言模型，默认值为 chatModel 中指定的模型，如果未指定，则使用 ctx.ai.model() 获取的模型
+      # 模型必须使用 `@ai-sdk/openai`（即 Responses API）提供的模型，否则无法使用网页搜索工具
+      # model: openai/gpt-5.6-luna
     # WebUI 的内存记录与查询上限
     webui:
       # 是否注册 WebUI，默认值为 true

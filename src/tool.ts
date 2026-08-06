@@ -1,3 +1,4 @@
+import { openai } from '@ai-sdk/openai';
 import type { Context } from '@fraqjs/fraq';
 import { ai, type ResourceIndex, type XmlifyContext, xmlify } from '@fraqjs/plugin-ai';
 import z from 'zod';
@@ -109,4 +110,38 @@ export function memoryTools(store: MemoryStore, scope: MemoryScope): Record<'rem
       },
     }),
   };
+}
+
+export interface ExternalWebSearchToolOptions {
+  ctx: Context;
+  model: ai.LanguageModel;
+}
+
+export function externalWebSearchTool({ ctx, model }: ExternalWebSearchToolOptions): ai.Tool {
+  return ai.tool({
+    description: '进行网页搜索',
+    inputSchema: z.object({
+      prompt: z.string().describe('搜索的提示词'),
+    }),
+    execute: async (input) => {
+      try {
+        const { text } = await ai.generateText({
+          model,
+          messages: [
+            {
+              role: 'user',
+              content: [{ type: 'text', text: `请根据以下提示词进行网页搜索，并返回搜索结果的摘要：${input.prompt}` }],
+            },
+          ],
+          tools: {
+            web_search: openai.tools.webSearch(),
+          },
+        });
+        return { ok: true, result: text };
+      } catch (error) {
+        ctx.logger.error(`网页搜索失败：${error}`);
+        return { ok: false, error: `网页搜索失败: ${stringifyError(error)}` };
+      }
+    },
+  });
 }

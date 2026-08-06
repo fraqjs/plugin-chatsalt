@@ -53,6 +53,7 @@
     "vite": "^7.3.6"
   },
   "peerDependencies": {
+    "@ai-sdk/openai": "^4",
     "@fraqjs/fraq": "^0.16.1",
     "@fraqjs/plugin-ai": "^0.7.0",
     "@fraqjs/plugin-kysely": "^0.4.0",

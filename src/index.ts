@@ -7,7 +7,7 @@ import pkg from '../package.json';
 import { ActivityRegistry, summarizeMessage } from './activity';
 import { MemoryStore } from './memory';
 import { buildConversationContext, buildPrompt, buildSystemPrompt, extractSenderName } from './prompt';
-import { describeImageTool, getMessageTool, memoryTools } from './tool';
+import { describeImageTool, externalWebSearchTool, getMessageTool, memoryTools } from './tool';
 
 export interface ChatsaltPluginOptions {
   persona: string;
@@ -26,6 +26,10 @@ export interface ChatsaltPluginOptions {
     enabled?: boolean;
     maxWindow?: number;
     maxScopeCount?: number;
+  };
+  externalWebSearch?: {
+    enabled?: boolean;
+    model?: string;
   };
   webui?: {
     enabled?: boolean;
@@ -78,6 +82,9 @@ export const ChatsaltPlugin = definePlugin({
     const maxMemoryWindow = options.memory?.maxWindow ?? 20;
     const maxMemoryScopeCount = options.memory?.maxScopeCount ?? 50;
 
+    const externalWebSearchEnabled = options.externalWebSearch?.enabled ?? false;
+    const externalWebSearchModel = ctx.ai.model(options.externalWebSearch?.model ?? options.chatModel);
+
     const debug_respondRejectedMessages = options.debug?.respondRejectedMessages ?? false;
     const debug_logAllToolCalls = options.debug?.logAllToolCalls ?? false;
 
@@ -86,6 +93,7 @@ export const ChatsaltPlugin = definePlugin({
       content: buildSystemPrompt({
         persona: options.persona,
         memoryEnabled,
+        externalWebSearchEnabled,
         extraPrompt: options.extraPrompt,
       }),
       providerOptions: {
@@ -217,6 +225,9 @@ export const ChatsaltPlugin = definePlugin({
         });
         if (memoryStore) {
           Object.assign(tools, memoryTools(memoryStore, memoryScope));
+        }
+        if (externalWebSearchEnabled) {
+          tools.external_web_search = externalWebSearchTool({ ctx, model: externalWebSearchModel });
         }
 
         const { text, toolResults, content } = await ai.generateText({

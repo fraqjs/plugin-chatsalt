@@ -5,6 +5,7 @@ import type { MemoryEntry } from './memory';
 export interface SystemPromptOptions {
   persona: string;
   memoryEnabled: boolean;
+  externalWebSearchEnabled: boolean;
   extraPrompt?: string;
 }
 
@@ -113,6 +114,17 @@ no_reply (用户的提问涉及 xxx，不该回答)
 - 明显过时或重复的条目。
 
 没有值得记录或删除的内容时，不要调用工具。
+      `.trim(),
+    );
+  }
+
+  if (options.externalWebSearchEnabled) {
+    components.push(
+      '# 网页搜索说明',
+      `
+你可以使用 external_web_search 工具进行网页搜索。
+如果你认为问题需要搜索网页才能回答，或者你想要获取更多信息来回答问题，你可以使用 external_web_search 工具。
+调用时不要在对用户的回复里提及工具或“搜索网页”。
       `.trim(),
     );
   }
