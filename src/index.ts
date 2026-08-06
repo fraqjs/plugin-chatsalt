@@ -338,12 +338,15 @@ export const ChatsaltPlugin = definePlugin({
     const chatsalt = ctx.router.group('chatsalt');
 
     chatsalt.command('inspect').execute(async (session) => {
-      session.reply(msg`
-===== Chatsalt 信息 =====
-版本: ${pkg.version}
-对话模型: ${stringifyModel(chatModel)}
-视觉模型: ${stringifyModel(visionModel)}
-      `);
+      const information: string[] = [];
+      information.push(`===== Chatsalt 信息 =====`);
+      information.push(`版本: ${pkg.version}`);
+      information.push(`对话模型: ${stringifyModel(chatModel)}`);
+      information.push(`视觉模型: ${stringifyModel(visionModel)}`);
+      if (externalWebSearchEnabled) {
+        information.push(`网页搜索模型: ${stringifyModel(externalWebSearchModel)}`);
+      }
+      session.reply(msg`${information.join('\n')}`);
     });
   },
 });
