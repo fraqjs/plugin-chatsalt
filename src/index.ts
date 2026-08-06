@@ -276,7 +276,7 @@ export const ChatsaltPlugin = definePlugin({
         }
 
         if (!debug_respondRejectedMessages) {
-          if (text.startsWith('no_reply')) {
+          if (text.trimStart().startsWith('no_reply')) {
             ctx.logger.warn(
               `Rejected message from ${data.sender_id} in ${data.message_scene} ${data.peer_id}: ${text}`,
             );
