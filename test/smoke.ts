@@ -14,11 +14,11 @@ const ctx = Context.fromUrl('http://localhost:30001', {
   logHandler: createSimpleLogHandler(),
 });
 
-if (!process.env.OAC_ENDPOINT) {
-  throw new Error('请在 .env 文件中设置 OAC_ENDPOINT');
+if (!process.env.OA_ENDPOINT) {
+  throw new Error('请在 .env 文件中设置 OA_ENDPOINT');
 }
-if (!process.env.OAC_APIKEY) {
-  throw new Error('请在 .env 文件中设置 OAC_APIKEY');
+if (!process.env.OA_APIKEY) {
+  throw new Error('请在 .env 文件中设置 OA_APIKEY');
 }
 if (!process.env.MODEL) {
   throw new Error('请在 .env 文件中设置 MODEL');
@@ -27,10 +27,10 @@ if (!process.env.MODEL) {
 ctx.install(AiPlugin, {
   providers: {
     deepseek: {
-      sdk: '@ai-sdk/openai-compatible',
+      sdk: '@ai-sdk/openai',
       options: {
-        apiKey: process.env.OAC_APIKEY,
-        baseURL: process.env.OAC_ENDPOINT,
+        apiKey: process.env.OA_APIKEY,
+        baseURL: process.env.OA_ENDPOINT,
       },
       models: [process.env.MODEL],
     },
@@ -44,6 +44,9 @@ ctx.install(MessageStorePlugin);
 ctx.install(ChatsaltPlugin, {
   persona: readFileSync('test/salt.persona.md', 'utf-8'),
   maxForwardDepth: 2,
+  externalWebSearch: {
+    enabled: true,
+  },
   debug: {
     respondRejectedMessages: true,
     logAllToolCalls: true,
