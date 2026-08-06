@@ -142,11 +142,6 @@ ${input.keywords.join(', ')}
           reasoning: 'none',
           maxOutputTokens: 512,
           maxRetries: 1,
-          providerOptions: {
-            openai: {
-              maxToolCalls: 2,
-            },
-          },
         });
         return { ok: true, result: text };
       } catch (error) {
