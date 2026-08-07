@@ -44,8 +44,8 @@
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "shadcn": "^4.16.1",
-    "tailwindcss": "^4.3.3",
     "tailwind-merge": "^3.6.0",
+    "tailwindcss": "^4.3.3",
     "tsdown": "^0.22.12",
     "tsx": "^4.23.1",
     "tw-animate-css": "^1.4.0",
@@ -67,5 +67,8 @@
   },
   "fraq": {
     "category": "ai"
+  },
+  "dependencies": {
+    "@github-tools/sdk": "^1.10.0"
   }
 }

@@ -6,6 +6,7 @@ export interface SystemPromptOptions {
   persona: string;
   memoryEnabled: boolean;
   externalWebSearchEnabled: boolean;
+  githubEnabled: boolean;
   extraPrompt?: string;
 }
 
@@ -130,6 +131,25 @@ no_reply (用户的提问涉及 xxx，不该回答)
 调用时不要在对用户的回复里提及工具或“搜索网页”。
       `.trim(),
     );
+  }
+
+  if (options.githubEnabled) {
+    components.push(
+      '# GitHub 工具说明',
+      `
+如果你认为问题需要查询 GitHub 仓库信息才能回答，你可以使用 GitHub 工具进行查询。
+尽量减少使用 GitHub 工具的次数，一次会话中尽量（最多）只使用一次 GitHub 工具。
+调用时不要在对用户的回复里提及工具或“查询 GitHub”。
+      `.trim(),
+    );
+    if (options.externalWebSearchEnabled) {
+      components.push(
+        `
+GitHub 工具的使用优先级高于网页搜索工具，如果你认为问题可以通过 GitHub 工具解决，就不要使用网页搜索工具。
+当然，如果你通过网页搜索得到了有用的 GitHub 仓库信息，也可以使用 GitHub 工具进一步查询。
+        `.trim(),
+      );
+    }
   }
 
   if (options.extraPrompt) {

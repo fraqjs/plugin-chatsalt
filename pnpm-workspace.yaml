@@ -5,3 +5,4 @@ minimumReleaseAgeExclude:
   - '@fraqjs/*'
   - '@ai-sdk/*'
   - ai
+  - '@github-tools/sdk@1.10.0'

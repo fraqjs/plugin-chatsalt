@@ -2,6 +2,7 @@ import { definePlugin, type milky, msg, seg, serviceToken } from '@fraqjs/fraq';
 import { AiService, ai, createResourceIndex, xmlifyThread } from '@fraqjs/plugin-ai';
 import { KyselyService } from '@fraqjs/plugin-kysely';
 import type { WebuiGatewayService } from '@fraqjs/plugin-webui-gateway';
+import { createGithubTools } from '@github-tools/sdk';
 
 import pkg from '../package.json';
 import { ActivityRegistry, summarizeMessage } from './activity';
@@ -30,6 +31,10 @@ export interface ChatsaltPluginOptions {
   externalWebSearch?: {
     enabled?: boolean;
     model?: string;
+  };
+  github?: {
+    enabled?: boolean;
+    token?: string;
   };
   webui?: {
     enabled?: boolean;
@@ -85,6 +90,12 @@ export const ChatsaltPlugin = definePlugin({
     const externalWebSearchEnabled = options.externalWebSearch?.enabled ?? false;
     const externalWebSearchModel = ctx.ai.model(options.externalWebSearch?.model ?? options.chatModel);
 
+    const githubEnabled = options.github?.enabled ?? false;
+    if (githubEnabled && !options.github?.token) {
+      throw new Error('GitHub token is required when GitHub integration is enabled.');
+    }
+    const githubToken = options.github?.token;
+
     const debug_respondRejectedMessages = options.debug?.respondRejectedMessages ?? false;
     const debug_logAllToolCalls = options.debug?.logAllToolCalls ?? false;
 
@@ -94,6 +105,7 @@ export const ChatsaltPlugin = definePlugin({
         persona: options.persona,
         memoryEnabled,
         externalWebSearchEnabled,
+        githubEnabled,
         extraPrompt: options.extraPrompt,
       }),
       providerOptions: {
@@ -228,6 +240,9 @@ export const ChatsaltPlugin = definePlugin({
         }
         if (externalWebSearchEnabled) {
           tools.external_web_search = externalWebSearchTool({ ctx, model: externalWebSearchModel });
+        }
+        if (githubEnabled) {
+          Object.assign(tools, createGithubTools({ token: githubToken, preset: 'repo-explorer' }));
         }
 
         const { text } = await ai.generateText({
