@@ -25,11 +25,11 @@
   "license": "MIT",
   "packageManager": "pnpm@11.9.0",
   "devDependencies": {
-    "@biomejs/biome": "^2.5.4",
+    "@biomejs/biome": "^2.5.7",
     "@fontsource-variable/inter": "^5.3.0",
-    "@fraqjs/plugin-message-store": "^0.4.0",
+    "@fraqjs/plugin-message-store": "^0.4.1",
     "@fraqjs/plugin-mock": "^0.2.0",
-    "@fraqjs/plugin-webui-gateway": "^0.3.0",
+    "@fraqjs/plugin-webui-gateway": "^0.4.0",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
@@ -39,25 +39,25 @@
     "clsx": "^2.1.1",
     "dotenv": "^17.4.2",
     "kysely": "^0.29.4",
-    "lucide-react": "^1.28.0",
+    "lucide-react": "^1.31.0",
     "radix-ui": "^1.6.7",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "shadcn": "^4.16.1",
+    "shadcn": "^4.16.2",
     "tailwind-merge": "^3.6.0",
     "tailwindcss": "^4.3.3",
-    "tsdown": "^0.22.12",
-    "tsx": "^4.23.1",
+    "tsdown": "^0.22.14",
+    "tsx": "^4.23.11",
     "tw-animate-css": "^1.4.0",
     "typescript": "^6.0.3",
     "vite": "^7.3.6"
   },
   "peerDependencies": {
     "@ai-sdk/openai": "^4",
-    "@fraqjs/fraq": "^0.16.1",
-    "@fraqjs/plugin-ai": "^0.7.0",
+    "@fraqjs/fraq": "^0.17.0",
+    "@fraqjs/plugin-ai": "^0.8.0",
     "@fraqjs/plugin-kysely": "^0.4.0",
-    "@fraqjs/plugin-webui-gateway": "^0.3.0",
+    "@fraqjs/plugin-webui-gateway": "^0.4.0",
     "zod": "^4.4.3"
   },
   "peerDependenciesMeta": {
@@ -69,6 +69,6 @@
     "category": "ai"
   },
   "dependencies": {
-    "@github-tools/sdk": "^1.10.0"
+    "@github-tools/sdk": "^1.11.1"
   }
 }
