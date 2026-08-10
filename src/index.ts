@@ -286,7 +286,7 @@ export const ChatsaltPlugin = definePlugin({
               case 'describe_image':
                 reactFaceIfNotReacted(face_OpenEyes).catch();
                 break;
-              case 'recall':
+              case 'remember':
               case 'forget':
                 reactFaceIfNotReacted(face_Learn).catch();
                 break;
