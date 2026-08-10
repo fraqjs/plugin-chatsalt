@@ -193,6 +193,25 @@ export const ChatsaltPlugin = definePlugin({
         return;
       }
 
+      const reactedFaces = new Set<number>();
+      const face_PressButton = 424; // processing
+      const face_OpenEyes = 289; // calling vision
+      const face_Learn = 481; // calling memory
+      const face_Busy = 373; // calling web search, github, get message
+      const face_Reject = 479; // rejected
+      const face_Tremble = 41; // error
+
+      async function reactFaceIfNotReacted(faceId: number) {
+        if (data.message_scene === 'group' && !reactedFaces.has(faceId)) {
+          reactedFaces.add(faceId);
+          await ctx.client.send_group_message_reaction({
+            group_id: data.peer_id,
+            message_seq: data.message_seq,
+            reaction: String(faceId),
+          });
+        }
+      }
+
       const senderName = extractSenderName(data);
       const recordContext = {
         selfId: self_id,
@@ -204,14 +223,7 @@ export const ChatsaltPlugin = definePlugin({
       };
 
       try {
-        if (data.message_scene === 'group') {
-          // Send a reaction to indicate that the message is being processed
-          await ctx.client.send_group_message_reaction({
-            group_id: data.peer_id,
-            message_seq: data.message_seq,
-            reaction: '424',
-          });
-        }
+        await reactFaceIfNotReacted(face_PressButton);
 
         const resourceIndex = createResourceIndex();
         const { messages } = await ctx.client.get_history_messages({
@@ -270,6 +282,18 @@ export const ChatsaltPlugin = definePlugin({
             if (debug_logAllToolCalls) {
               ctx.logger.debug(`Tool call (${e.toolCall.toolName}) <- ${JSON.stringify(e.toolCall.input)}`);
             }
+            switch (e.toolCall.toolName) {
+              case 'describe_image':
+                reactFaceIfNotReacted(face_OpenEyes).catch();
+                break;
+              case 'recall':
+              case 'forget':
+                reactFaceIfNotReacted(face_Learn).catch();
+                break;
+              default: // get_message, external_web_search, github tools
+                reactFaceIfNotReacted(face_Busy).catch();
+                break;
+            }
           },
           onToolExecutionEnd: (e) => {
             if (e.toolOutput.type === 'tool-error') {
@@ -308,14 +332,7 @@ export const ChatsaltPlugin = definePlugin({
               message: '模型拒绝回复',
               detail: text,
             });
-            if (data.message_scene === 'group') {
-              // Send a reaction to indicate that the message was rejected
-              await ctx.client.send_group_message_reaction({
-                group_id: data.peer_id,
-                message_seq: data.message_seq,
-                reaction: '479',
-              });
-            }
+            await reactFaceIfNotReacted(face_Reject);
             return;
           }
         }
@@ -347,7 +364,8 @@ export const ChatsaltPlugin = definePlugin({
           message: '对话处理失败',
           detail: stringifyError(error),
         });
-        throw error;
+        reactFaceIfNotReacted(face_Tremble).catch();
+        ctx.logger.error('对话处理失败', error);
       }
     });
 
