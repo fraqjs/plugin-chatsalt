@@ -2,26 +2,6 @@ import type { milky } from '@fraqjs/fraq';
 
 import type { MemoryEntry } from './memory';
 
-export interface SystemPromptOptions {
-  persona: string;
-  memoryEnabled: boolean;
-  externalWebSearchEnabled: boolean;
-  githubEnabled: boolean;
-  extraPrompt?: string;
-}
-
-export interface ConversationContextOptions {
-  selfId: number;
-  scene: 'friend' | 'group';
-  senderId: number;
-  senderName: string;
-}
-
-export interface PromptOptions {
-  thread: string;
-  memories?: MemoryEntry[];
-}
-
 export function extractSenderName(message: milky.IncomingMessage): string {
   if (message.message_scene === 'friend') {
     return message.friend.remark || message.friend.nickname;
@@ -30,6 +10,14 @@ export function extractSenderName(message: milky.IncomingMessage): string {
     return message.group_member.card || message.group_member.nickname;
   }
   return '';
+}
+
+export interface SystemPromptOptions {
+  persona: string;
+  memoryEnabled: boolean;
+  externalWebSearchEnabled: boolean;
+  githubEnabled: boolean;
+  extraPrompt?: string;
 }
 
 export function buildSystemPrompt(options: SystemPromptOptions): string {
@@ -159,6 +147,13 @@ GitHub 工具的使用优先级高于网页搜索工具，如果你认为问题�
   return components.join('\n\n');
 }
 
+export interface ConversationContextOptions {
+  selfId: number;
+  scene: 'friend' | 'group';
+  senderId: number;
+  senderName: string;
+}
+
 export function buildConversationContext(options: ConversationContextOptions): string {
   return [
     '# 场景',
@@ -170,8 +165,16 @@ export function buildConversationContext(options: ConversationContextOptions): s
   ].join('\n\n');
 }
 
+export interface PromptOptions {
+  focused: string;
+  thread: string;
+  memories?: MemoryEntry[];
+}
+
 export function buildPrompt(options: PromptOptions) {
   const components: string[] = [];
+
+  components.push('# 当前消息', options.focused);
 
   components.push('# 上下文', options.thread);
 

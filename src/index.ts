@@ -1,5 +1,5 @@
 import { definePlugin, type milky, msg, seg, serviceToken } from '@fraqjs/fraq';
-import { AiService, ai, createResourceIndex, xmlifyThread } from '@fraqjs/plugin-ai';
+import { AiService, ai, createResourceIndex, xmlify, xmlifyThread } from '@fraqjs/plugin-ai';
 import { KyselyService } from '@fraqjs/plugin-kysely';
 import type { WebuiGatewayService } from '@fraqjs/plugin-webui-gateway';
 import { createGithubTools } from '@github-tools/sdk';
@@ -226,12 +226,17 @@ export const ChatsaltPlugin = definePlugin({
         await reactFaceIfNotReacted(face_PressButton);
 
         const resourceIndex = createResourceIndex();
+        const focused = await xmlify(ctx, data, { maxForwardDepth, resourceIndex });
         const { messages } = await ctx.client.get_history_messages({
           message_scene: data.message_scene,
           peer_id: data.peer_id,
+          start_message_seq: data.message_seq,
           limit: contextWindow,
         });
         const thread = await xmlifyThread(ctx, messages, { maxForwardDepth, resourceIndex });
+        Object.assign(thread.resources, focused.resources);
+        Object.assign(thread.files, focused.files);
+        Object.assign(thread.forwards, focused.forwards);
         const memoryScope = {
           selfId: self_id,
           scene: data.message_scene,
@@ -272,6 +277,7 @@ export const ChatsaltPlugin = definePlugin({
             },
           ],
           prompt: buildPrompt({
+            focused: focused.xmlContent,
             thread: thread.xmlContent,
             memories: await memoryStore?.recall(memoryScope),
           }),
