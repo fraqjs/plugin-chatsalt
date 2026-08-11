@@ -4,6 +4,7 @@ import { ai, type ResourceIndex, type XmlifyContext, xmlify } from '@fraqjs/plug
 import z from 'zod';
 
 import type { MemoryScope, MemoryStore } from './memory';
+import { fetchWebPage, type WebPageOptions } from './web-page';
 
 function stringifyError(error: unknown): string {
   if (error instanceof Error) {
@@ -147,6 +148,27 @@ ${input.keywords.join(', ')}
       } catch (error) {
         ctx.logger.error(`网页搜索失败：${error}`);
         return { ok: false, error: `网页搜索失败: ${stringifyError(error)}` };
+      }
+    },
+  });
+}
+
+export interface OpenWebPageToolOptions extends WebPageOptions {
+  ctx: Context;
+}
+
+export function openWebPageTool({ ctx, ...options }: OpenWebPageToolOptions): ai.Tool {
+  return ai.tool({
+    description: '打开指定的 HTTP 或 HTTPS 网页，并读取网页的标题和正文内容',
+    inputSchema: z.object({
+      url: z.url().describe('要打开的网页 URL'),
+    }),
+    execute: async ({ url }) => {
+      try {
+        return { ok: true, result: await fetchWebPage(url, options) };
+      } catch (error) {
+        ctx.logger.error(`打开网页失败：${error}`);
+        return { ok: false, error: `打开网页失败：${stringifyError(error)}` };
       }
     },
   });

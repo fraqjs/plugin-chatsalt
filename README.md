@@ -59,6 +59,18 @@ plugins:
       # 若启用，使用的语言模型，默认值为 chatModel 中指定的模型，如果未指定，则使用 ctx.ai.model() 获取的模型
       # 模型必须使用 `@ai-sdk/openai`（即 Responses API）提供的模型，否则无法使用网页搜索工具
       model: openai/gpt-5.6-luna
+    # 有关直接读取网页的配置项。启用后，模型可以打开上下文中明确提供的 HTTP 或 HTTPS URL
+    webPage:
+      # 是否启用网页读取工具，默认值为 false
+      enabled: false
+      # 单次请求超时时间，默认值为 10000 毫秒
+      timeoutMs: 10000
+      # 最大响应正文大小，默认值为 2 MiB
+      maxResponseBytes: 2097152
+      # 返回给模型的最大正文字符数，默认值为 20000
+      maxContentLength: 20000
+      # 最大重定向次数，默认值为 3；每次重定向都会重新校验目标地址
+      maxRedirects: 3
     # 有关 GitHub 工具的配置项
     github:
       # 是否启用 GitHub 工具，默认值为 false

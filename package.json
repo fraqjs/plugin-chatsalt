@@ -69,6 +69,10 @@
     "category": "ai"
   },
   "dependencies": {
-    "@github-tools/sdk": "^1.11.1"
+    "@github-tools/sdk": "^1.11.1",
+    "@mozilla/readability": "^0.6.0",
+    "ipaddr.js": "^2.5.0",
+    "linkedom": "^0.18.13",
+    "undici": "^7.29.0"
   }
 }

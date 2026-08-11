@@ -2,13 +2,13 @@ import { definePlugin, type milky, msg, seg, serviceToken } from '@fraqjs/fraq';
 import { AiService, ai, createResourceIndex, xmlify, xmlifyThread } from '@fraqjs/plugin-ai';
 import { KyselyService } from '@fraqjs/plugin-kysely';
 import type { WebuiGatewayService } from '@fraqjs/plugin-webui-gateway';
-import { createGithubTools } from '@github-tools/sdk';
+import { createGithubTools as githubTools } from '@github-tools/sdk';
 
 import pkg from '../package.json';
 import { ActivityRegistry, summarizeMessage } from './activity';
 import { MemoryStore } from './memory';
 import { buildConversationContext, buildPrompt, buildSystemPrompt, extractSenderName } from './prompt';
-import { describeImageTool, externalWebSearchTool, getMessageTool, memoryTools } from './tool';
+import { describeImageTool, externalWebSearchTool, getMessageTool, memoryTools, openWebPageTool } from './tool';
 
 export interface ChatsaltPluginOptions {
   persona: string;
@@ -31,6 +31,13 @@ export interface ChatsaltPluginOptions {
   externalWebSearch?: {
     enabled?: boolean;
     model?: string;
+  };
+  webPage?: {
+    enabled?: boolean;
+    timeoutMs?: number;
+    maxResponseBytes?: number;
+    maxContentLength?: number;
+    maxRedirects?: number;
   };
   github?: {
     enabled?: boolean;
@@ -90,6 +97,12 @@ export const ChatsaltPlugin = definePlugin({
     const externalWebSearchEnabled = options.externalWebSearch?.enabled ?? false;
     const externalWebSearchModel = ctx.ai.model(options.externalWebSearch?.model ?? options.chatModel);
 
+    const webPageEnabled = options.webPage?.enabled ?? false;
+    const webPageTimeoutMs = options.webPage?.timeoutMs ?? 10_000;
+    const webPageMaxResponseBytes = options.webPage?.maxResponseBytes ?? 2 * 1024 * 1024;
+    const webPageMaxContentLength = options.webPage?.maxContentLength ?? 20_000;
+    const webPageMaxRedirects = options.webPage?.maxRedirects ?? 3;
+
     const githubEnabled = options.github?.enabled ?? false;
     if (githubEnabled && !options.github?.token) {
       throw new Error('GitHub token is required when GitHub integration is enabled.');
@@ -105,6 +118,7 @@ export const ChatsaltPlugin = definePlugin({
         persona: options.persona,
         memoryEnabled,
         externalWebSearchEnabled,
+        webPageEnabled,
         githubEnabled,
         extraPrompt: options.extraPrompt,
       }),
@@ -258,8 +272,17 @@ export const ChatsaltPlugin = definePlugin({
         if (externalWebSearchEnabled) {
           tools.external_web_search = externalWebSearchTool({ ctx, model: externalWebSearchModel });
         }
+        if (webPageEnabled) {
+          tools.open_web_page = openWebPageTool({
+            ctx,
+            timeoutMs: webPageTimeoutMs,
+            maxResponseBytes: webPageMaxResponseBytes,
+            maxContentLength: webPageMaxContentLength,
+            maxRedirects: webPageMaxRedirects,
+          });
+        }
         if (githubEnabled) {
-          Object.assign(tools, createGithubTools({ token: githubToken, preset: 'repo-explorer' }));
+          Object.assign(tools, githubTools({ token: githubToken, preset: 'repo-explorer' }));
         }
 
         const { text } = await ai.generateText({
