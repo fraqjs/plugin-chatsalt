@@ -159,7 +159,7 @@ export interface OpenWebPageToolOptions extends WebPageOptions {
 
 export function openWebPageTool({ ctx, ...options }: OpenWebPageToolOptions): ai.Tool {
   return ai.tool({
-    description: '打开指定的 HTTP 或 HTTPS 网页，并读取网页的标题和正文内容',
+    description: '打开指定的 HTTP 或 HTTPS URL，并读取 HTML、JSON、XML、Markdown、CSV 或纯文本内容',
     inputSchema: z.object({
       url: z.url().describe('要打开的网页 URL'),
     }),

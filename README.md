@@ -59,7 +59,8 @@ plugins:
       # 若启用，使用的语言模型，默认值为 chatModel 中指定的模型，如果未指定，则使用 ctx.ai.model() 获取的模型
       # 模型必须使用 `@ai-sdk/openai`（即 Responses API）提供的模型，否则无法使用网页搜索工具
       model: openai/gpt-5.6-luna
-    # 有关直接读取网页的配置项。启用后，模型可以打开上下文中明确提供的 HTTP 或 HTTPS URL
+    # 有关直接读取网页的配置项。启用后，模型可以读取上下文中明确提供的 HTTP 或 HTTPS URL
+    # 支持 HTML、JSON、XML、Markdown、CSV 和纯文本；XML 只作为文本读取，不会解析外部实体
     webPage:
       # 是否启用网页读取工具，默认值为 false
       enabled: false

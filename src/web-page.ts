@@ -8,7 +8,7 @@ import pkg from '../package.json';
 import { lookup } from 'node:dns/promises';
 import type { ReadableStream } from 'node:stream/web';
 
-const supportedContentTypes = new Set(['application/xhtml+xml', 'text/html', 'text/plain']);
+const plainTextContentTypes = new Set(['text/csv', 'text/markdown', 'text/plain']);
 const redirectStatuses = new Set([301, 302, 303, 307, 308]);
 
 export interface WebPageOptions {
@@ -21,7 +21,30 @@ export interface WebPageOptions {
 export interface WebPageContent {
   url: string;
   title: string;
+  contentType: string;
   content: string;
+}
+
+type ContentKind = 'html' | 'json' | 'text' | 'xml';
+
+function getContentKind(contentType: string): ContentKind | undefined {
+  if (contentType === 'text/html' || contentType === 'application/xhtml+xml') {
+    return 'html';
+  }
+  if (contentType === 'application/json' || (contentType.startsWith('application/') && contentType.endsWith('+json'))) {
+    return 'json';
+  }
+  if (
+    contentType === 'application/xml' ||
+    contentType === 'text/xml' ||
+    (contentType.startsWith('application/') && contentType.endsWith('+xml'))
+  ) {
+    return 'xml';
+  }
+  if (plainTextContentTypes.has(contentType)) {
+    return 'text';
+  }
+  return undefined;
 }
 
 function assertPublicAddress(address: string): void {
@@ -105,20 +128,42 @@ function decodeBody(body: Uint8Array, contentType: string): string {
   }
 }
 
-export function extractWebPageContent(html: string, url: URL, maxContentLength: number): WebPageContent {
-  const { document } = parseHTML(html);
-  const article = new Readability(document as unknown as ConstructorParameters<typeof Readability>[0], {
-    maxElemsToParse: 100_000,
-  }).parse();
-  const title = article?.title?.trim() || document.title.trim() || url.hostname;
-  const content = (article?.textContent || document.body?.textContent || '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, maxContentLength);
+export function extractWebPageContent(
+  text: string,
+  url: URL,
+  contentType: string,
+  maxContentLength: number,
+): WebPageContent {
+  const kind = getContentKind(contentType);
+  if (!kind) {
+    throw new Error(`不支持网页内容类型：${contentType || '未知'}`);
+  }
+
+  let title = url.hostname;
+  let content: string;
+  if (kind === 'html') {
+    const { document } = parseHTML(text);
+    const article = new Readability(document as unknown as ConstructorParameters<typeof Readability>[0], {
+      maxElemsToParse: 100_000,
+    }).parse();
+    title = article?.title?.trim() || document.title.trim() || title;
+    content = article?.textContent || document.body?.textContent || '';
+  } else if (kind === 'json') {
+    try {
+      content = JSON.stringify(JSON.parse(text));
+    } catch {
+      throw new Error('网页返回的 JSON 内容无效');
+    }
+  } else {
+    // XML remains plain text so DTDs and external entities are never evaluated.
+    content = text;
+  }
+
+  content = content.replace(/\s+/g, ' ').trim().slice(0, maxContentLength);
   if (!content) {
     throw new Error('网页中没有可读取的文本内容。');
   }
-  return { url: url.href, title, content };
+  return { url: url.href, title, contentType, content };
 }
 
 export async function fetchWebPage(input: string, options: WebPageOptions): Promise<WebPageContent> {
@@ -147,7 +192,8 @@ export async function fetchWebPage(input: string, options: WebPageOptions): Prom
         redirect: 'manual',
         signal: AbortSignal.timeout(options.timeoutMs),
         headers: {
-          accept: 'text/html,application/xhtml+xml,text/plain;q=0.9',
+          accept:
+            'text/html,application/xhtml+xml,application/json,application/xml,text/xml,text/plain,text/markdown,text/csv;q=0.9',
           'user-agent': `fraq-plugin-chatsalt/${pkg.version}`,
         },
       });
@@ -172,7 +218,7 @@ export async function fetchWebPage(input: string, options: WebPageOptions): Prom
 
       const contentTypeHeader = response.headers.get('content-type') ?? 'text/html';
       const contentType = contentTypeHeader.split(';', 1)[0].trim().toLowerCase();
-      if (!supportedContentTypes.has(contentType)) {
+      if (!getContentKind(contentType)) {
         await response.body?.cancel();
         throw new Error(`不支持网页内容类型：${contentType || '未知'}`);
       }
@@ -185,14 +231,7 @@ export async function fetchWebPage(input: string, options: WebPageOptions): Prom
 
       const body = await readLimitedBody(response.body, options.maxResponseBytes);
       const text = decodeBody(body, contentTypeHeader);
-      if (contentType === 'text/plain') {
-        const content = text.replace(/\s+/g, ' ').trim().slice(0, options.maxContentLength);
-        if (!content) {
-          throw new Error('网页中没有可读取的文本内容。');
-        }
-        return { url: url.href, title: url.hostname, content };
-      }
-      return extractWebPageContent(text, url, options.maxContentLength);
+      return extractWebPageContent(text, url, contentType, options.maxContentLength);
     } finally {
       await dispatcher.close();
     }
