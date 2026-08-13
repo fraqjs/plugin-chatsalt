@@ -217,12 +217,19 @@ export const ChatsaltPlugin = definePlugin({
 
       async function reactFaceIfNotReacted(faceId: number) {
         if (data.message_scene === 'group' && !reactedFaces.has(faceId)) {
+          try {
+            await ctx.client.send_group_message_reaction({
+              group_id: data.peer_id,
+              message_seq: data.message_seq,
+              reaction: String(faceId),
+            });
+          } catch (error) {
+            ctx.logger.warn(
+              `Failed to react with face ${faceId} to message ${data.message_seq} in group ${data.peer_id}`,
+              error,
+            );
+          }
           reactedFaces.add(faceId);
-          await ctx.client.send_group_message_reaction({
-            group_id: data.peer_id,
-            message_seq: data.message_seq,
-            reaction: String(faceId),
-          });
         }
       }
 
@@ -237,8 +244,11 @@ export const ChatsaltPlugin = definePlugin({
       };
 
       try {
-        await reactFaceIfNotReacted(face_PressButton);
-
+        await ctx.client.send_group_message_reaction({
+          group_id: data.peer_id,
+          message_seq: data.message_seq,
+          reaction: String(face_PressButton),
+        }); // this react does not catch, to test message ability
         const resourceIndex = createResourceIndex();
         const focused = await xmlify(ctx, data, { maxForwardDepth, resourceIndex });
         const { messages } = await ctx.client.get_history_messages({
@@ -313,14 +323,14 @@ export const ChatsaltPlugin = definePlugin({
             }
             switch (e.toolCall.toolName) {
               case 'describe_image':
-                reactFaceIfNotReacted(face_OpenEyes).catch();
+                reactFaceIfNotReacted(face_OpenEyes);
                 break;
               case 'remember':
               case 'forget':
-                reactFaceIfNotReacted(face_Learn).catch();
+                reactFaceIfNotReacted(face_Learn);
                 break;
               default: // get_message, external_web_search, github tools
-                reactFaceIfNotReacted(face_Busy).catch();
+                reactFaceIfNotReacted(face_Busy);
                 break;
             }
           },
@@ -361,7 +371,7 @@ export const ChatsaltPlugin = definePlugin({
               message: '模型拒绝回复',
               detail: text,
             });
-            await reactFaceIfNotReacted(face_Reject);
+            reactFaceIfNotReacted(face_Reject);
             return;
           }
         }
@@ -393,7 +403,7 @@ export const ChatsaltPlugin = definePlugin({
           message: '对话处理失败',
           detail: stringifyError(error),
         });
-        reactFaceIfNotReacted(face_Tremble).catch();
+        reactFaceIfNotReacted(face_Tremble);
         ctx.logger.error('对话处理失败', error);
       }
     });
