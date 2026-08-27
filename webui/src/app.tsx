@@ -3,6 +3,7 @@ import {
   BotIcon,
   BrainIcon,
   CheckIcon,
+  ChevronDownIcon,
   CircleAlertIcon,
   LoaderCircleIcon,
   MessageSquareIcon,
@@ -32,6 +33,14 @@ interface ConversationRecord {
   input: string;
   output: string;
   outcome: 'replied' | 'rejected';
+  durationMs: number;
+  toolCallCount: number;
+  toolDurationMs: number;
+  toolActivity: Array<{
+    name: string;
+    callCount: number;
+    durationMs: number;
+  }>;
 }
 
 interface WarningRecord {
@@ -74,6 +83,18 @@ function formatTime(timestamp: number): string {
     second: '2-digit',
     hour12: false,
   }).format(timestamp);
+}
+
+function formatDuration(durationMs: number): string {
+  if (durationMs < 1_000) {
+    return `${Math.round(durationMs)} ms`;
+  }
+  if (durationMs < 60_000) {
+    return `${(durationMs / 1_000).toFixed(durationMs < 10_000 ? 2 : 1)} s`;
+  }
+  const minutes = Math.floor(durationMs / 60_000);
+  const seconds = Math.round((durationMs % 60_000) / 1_000);
+  return `${minutes} min ${seconds} s`;
 }
 
 function SceneBadge({ scene }: { scene: Scene }) {
@@ -120,15 +141,18 @@ function Conversations({ records }: { records: ConversationRecord[] }) {
   return (
     <div className="space-y-3">
       {records.map((record) => (
-        <article key={record.id} className="rounded-md border bg-background">
-          <header className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
-            <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <SceneBadge scene={record.scene} />
-              <span className="truncate text-sm font-medium">{record.senderName || record.senderId}</span>
-              <span className="font-mono text-xs text-muted-foreground">{record.senderId}</span>
-              <span className="text-xs text-muted-foreground">会话 {record.peerId}</span>
+        <details key={record.id} className="group rounded-md border bg-background open:border-foreground/20">
+          <summary className="flex list-none items-center gap-3 px-4 py-3 outline-none focus-visible:ring-2 focus-visible:ring-ring/30 [&::-webkit-details-marker]:hidden">
+            <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <SceneBadge scene={record.scene} />
+                <span className="truncate text-sm font-medium">{record.senderName || record.senderId}</span>
+                <span className="font-mono text-xs text-muted-foreground">{record.senderId}</span>
+                <span className="text-xs text-muted-foreground">会话 {record.peerId}</span>
+              </div>
+              <p className="mt-2 truncate text-sm text-muted-foreground">{record.input}</p>
             </div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <div className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
               {record.outcome === 'rejected' ? (
                 <Badge variant="destructive" className="rounded-md">
                   已拒绝
@@ -136,20 +160,68 @@ function Conversations({ records }: { records: ConversationRecord[] }) {
               ) : (
                 <CheckIcon className="size-3.5" aria-label="已回复" />
               )}
-              <time dateTime={new Date(record.createdAt).toISOString()}>{formatTime(record.createdAt)}</time>
+              <time className="hidden sm:inline" dateTime={new Date(record.createdAt).toISOString()}>
+                {formatTime(record.createdAt)}
+              </time>
+              <ChevronDownIcon
+                className="size-4 transition-transform duration-200 group-open:rotate-180"
+                aria-hidden="true"
+              />
             </div>
-          </header>
-          <div className="grid md:grid-cols-2 md:divide-x">
-            <div className="min-w-0 px-4 py-3">
-              <p className="mb-2 text-xs font-medium text-muted-foreground">用户</p>
-              <p className="whitespace-pre-wrap break-words text-sm leading-6">{record.input}</p>
+          </summary>
+          <div className="border-t">
+            <div className="grid md:grid-cols-2 md:divide-x">
+              <div className="min-w-0 px-4 py-3">
+                <p className="mb-2 text-xs font-medium text-muted-foreground">用户</p>
+                <p className="whitespace-pre-wrap break-words text-sm leading-6">{record.input}</p>
+              </div>
+              <div className="min-w-0 border-t px-4 py-3 md:border-t-0">
+                <p className="mb-2 text-xs font-medium text-muted-foreground">Chatsalt</p>
+                <p className="whitespace-pre-wrap break-words text-sm leading-6">{record.output}</p>
+              </div>
             </div>
-            <div className="min-w-0 border-t px-4 py-3 md:border-t-0">
-              <p className="mb-2 text-xs font-medium text-muted-foreground">Chatsalt</p>
-              <p className="whitespace-pre-wrap break-words text-sm leading-6">{record.output}</p>
-            </div>
+            <section className="border-t bg-muted/30 px-4 py-3" aria-label="调试详情">
+              <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
+                <div>
+                  <dt className="text-xs text-muted-foreground">总耗时</dt>
+                  <dd className="mt-1 font-mono text-sm tabular-nums">{formatDuration(record.durationMs)}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground">工具调用</dt>
+                  <dd className="mt-1 font-mono text-sm tabular-nums">{record.toolCallCount} 次</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground">工具总耗时</dt>
+                  <dd className="mt-1 font-mono text-sm tabular-nums">{formatDuration(record.toolDurationMs)}</dd>
+                </div>
+              </dl>
+              {record.toolActivity.length > 0 ? (
+                <div className="mt-4 overflow-hidden rounded-md border bg-background">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="hover:bg-transparent">
+                        <TableHead>工具</TableHead>
+                        <TableHead className="w-24 text-right">调用次数</TableHead>
+                        <TableHead className="w-28 text-right">耗时</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {record.toolActivity.map((tool) => (
+                        <TableRow key={tool.name}>
+                          <TableCell className="whitespace-normal break-all font-mono text-xs">{tool.name}</TableCell>
+                          <TableCell className="text-right font-mono text-xs tabular-nums">{tool.callCount}</TableCell>
+                          <TableCell className="text-right font-mono text-xs tabular-nums">
+                            {formatDuration(tool.durationMs)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : null}
+            </section>
           </div>
-        </article>
+        </details>
       ))}
     </div>
   );

@@ -207,6 +207,11 @@ export const ChatsaltPlugin = definePlugin({
         return;
       }
 
+      const startedAt = performance.now();
+      let toolCallCount = 0;
+      let toolDurationMs = 0;
+      const toolActivity = new Map<string, { callCount: number; durationMs: number }>();
+
       const reactedFaces = new Set<number>();
       const face_PressButton = 424; // processing
       const face_OpenEyes = 289; // calling vision
@@ -242,6 +247,12 @@ export const ChatsaltPlugin = definePlugin({
         senderName,
         messageSeq: data.message_seq,
       };
+      const getActivityMetrics = () => ({
+        durationMs: performance.now() - startedAt,
+        toolCallCount,
+        toolDurationMs,
+        toolActivity: Array.from(toolActivity, ([name, metrics]) => ({ name, ...metrics })),
+      });
 
       try {
         await ctx.client.send_group_message_reaction({
@@ -335,6 +346,18 @@ export const ChatsaltPlugin = definePlugin({
             }
           },
           onToolExecutionEnd: (e) => {
+            toolCallCount += 1;
+            toolDurationMs += e.toolExecutionMs;
+            const metrics = toolActivity.get(e.toolCall.toolName);
+            if (metrics) {
+              metrics.callCount += 1;
+              metrics.durationMs += e.toolExecutionMs;
+            } else {
+              toolActivity.set(e.toolCall.toolName, {
+                callCount: 1,
+                durationMs: e.toolExecutionMs,
+              });
+            }
             if (e.toolOutput.type === 'tool-error') {
               ctx.logger.warn(`Tool call (${e.toolCall.toolName}) failed`, e.toolOutput.error);
               activity.recordWarning({
@@ -364,6 +387,7 @@ export const ChatsaltPlugin = definePlugin({
               input: summarizeMessage(data),
               output: text,
               outcome: 'rejected',
+              ...getActivityMetrics(),
             });
             activity.recordWarning({
               ...recordContext,
@@ -395,6 +419,7 @@ export const ChatsaltPlugin = definePlugin({
           input: summarizeMessage(data),
           output: text,
           outcome: 'replied',
+          ...getActivityMetrics(),
         });
       } catch (error) {
         activity.recordWarning({

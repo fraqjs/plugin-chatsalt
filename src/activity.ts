@@ -3,6 +3,12 @@ import type { milky } from '@fraqjs/fraq';
 export type ConversationOutcome = 'replied' | 'rejected';
 export type WarningKind = 'generation' | 'rejected' | 'tool';
 
+export interface ToolActivityRecord {
+  name: string;
+  callCount: number;
+  durationMs: number;
+}
+
 export interface ConversationRecord {
   id: number;
   createdAt: number;
@@ -15,6 +21,10 @@ export interface ConversationRecord {
   input: string;
   output: string;
   outcome: ConversationOutcome;
+  durationMs: number;
+  toolCallCount: number;
+  toolDurationMs: number;
+  toolActivity: ToolActivityRecord[];
 }
 
 export interface WarningRecord {
