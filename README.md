@@ -120,3 +120,4 @@ Gateway 统一鉴权；如果未安装 Gateway，Chatsalt 不会注册任何 Web
 `chatsalt` 可以提供一些除对话之外的功能，目前有如下用法：
 
 - `chatsalt inspect`：查看插件的版本、对话模型和视觉模型等信息。
+- `chatsalt rename <新名片>`：更改机器人在当前群的群名片。

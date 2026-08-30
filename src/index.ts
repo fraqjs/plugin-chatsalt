@@ -1,4 +1,4 @@
-import { definePlugin, type milky, msg, seg, serviceToken } from '@fraqjs/fraq';
+import { definePlugin, type milky, msg, param, seg, serviceToken } from '@fraqjs/fraq';
 import { AiService, ai, createResourceIndex, xmlify, xmlifyThread } from '@fraqjs/plugin-ai';
 import { KyselyService } from '@fraqjs/plugin-kysely';
 import type { WebuiGatewayService } from '@fraqjs/plugin-webui-gateway';
@@ -444,8 +444,21 @@ export const ChatsaltPlugin = definePlugin({
       if (externalWebSearchEnabled) {
         information.push(`网页搜索模型: ${stringifyModel(externalWebSearchModel)}`);
       }
-      session.reply(msg`${information.join('\n')}`);
+      await session.reply(msg`${information.join('\n')}`);
     });
+
+    chatsalt
+      .filter((session) => session.raw.message_scene === 'group')
+      .command('rename')
+      .arg('newName', param.greedy())
+      .execute(async (session, { newName }) => {
+        await ctx.client.set_group_member_card({
+          group_id: session.raw.peer_id,
+          user_id: session.selfId,
+          card: newName,
+        });
+        await session.reply(msg`已将机器人昵称修改为 ${newName}`);
+      });
   },
 });
 
