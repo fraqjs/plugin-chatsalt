@@ -15,6 +15,7 @@ export interface ChatsaltPluginOptions {
   chatModel?: string;
   visionModel?: string;
 
+  owners?: number[];
   contextWindow?: number;
   maxForwardDepth?: number;
   temperature?: number;
@@ -83,8 +84,9 @@ export const ChatsaltPlugin = definePlugin({
     const chatModel = ctx.ai.model(options.chatModel);
     const visionModel = ctx.ai.model(options.visionModel ?? options.chatModel);
 
-    const maxForwardDepth = options.maxForwardDepth ?? 0;
+    const owners = options.owners ?? [];
     const contextWindow = options.contextWindow ?? 20;
+    const maxForwardDepth = options.maxForwardDepth ?? 0;
     const temperature = options.temperature ?? 0.8;
     const maxToolSteps = options.maxToolSteps ?? 10;
 
@@ -448,7 +450,7 @@ export const ChatsaltPlugin = definePlugin({
     });
 
     chatsalt
-      .filter((session) => session.raw.message_scene === 'group')
+      .filter((session) => session.raw.message_scene === 'group' && owners.includes(session.raw.sender_id))
       .command('rename')
       .arg('newName', param.greedy())
       .execute(async (session, { newName }) => {

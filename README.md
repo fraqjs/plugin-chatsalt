@@ -9,27 +9,37 @@
 ```yaml
 plugins:
   # 本插件依赖 fraqjs/ai 和 fraqjs/kysely 插件，因此需要一并安装
+
   fraqjs/ai:
     # 在这里传入 AiPlugin 的配置选项
+
   fraqjs/kysely:
     # 在这里传入 KyselyPlugin 的配置选项
+
   # 推荐配合 fraqjs/message-store 插件使用，以便在数据库中持久化消息，减少远程拉取消息上下文的次数
   fraqjs/message-store:
     # 在这里传入 MessageStorePlugin 的配置选项
-  # 可选。安装后 chatsalt 会自动注册 WebUI；未安装时不影响对话功能
+
+  # 可选，安装后 chatsalt 会自动注册 WebUI，未安装时不影响对话功能
   fraqjs/webui-gateway:
-    accessToken: ${{ env:FRAQ_WEBUI_TOKEN }}
+    # 在这里传入 WebuiGateway 的配置选项
+
   chatsalt:
     # 角色设定文本，推荐使用 Markdown 格式，并且保存在另一个文件中以保持配置文件可读性。
     # 这里的配置表示从 persona.md 文件中读取角色设定文本
     # 角色设定文本会在每次对话开始时被注入到上下文中。
     persona: ${{ text:persona.md }}
+
     # 用于对话的语言模型，可以指定在 fraqjs/ai 插件中配置的模型名称或别名
     # 默认使用 ctx.ai.model() 获取的模型
     # chatModel: google/gemini-3.5-flash
+
     # 用于图像识别的语言模型，可以指定在 fraqjs/ai 插件中配置的模型名称或别名
     # 默认使用 chatModel 中指定的模型，如果未指定，则使用 ctx.ai.model() 获取的模型
     # visionModel: openai/gpt-5.6-luna
+
+    # 主人（管理员）列表，可用于执行部分命令，但不会将相关信息注入 prompt
+    owners: [10001, 10002]
     # 上下文窗口大小，即提供给大模型的消息总数，默认值为 20
     contextWindow: 20
     # 若上下文中包含合并转发消息，则最多展开的层数，默认值为 0，即不展开
