@@ -8,7 +8,14 @@ import pkg from '../package.json';
 import { ActivityRegistry, summarizeMessage } from './activity';
 import { MemoryStore } from './memory';
 import { buildConversationContext, buildPrompt, buildSystemPrompt, extractSenderName } from './prompt';
-import { describeImageTool, externalWebSearchTool, getMessageTool, memoryTools, openWebPageTool } from './tool';
+import {
+  describeImageTool,
+  externalWebSearchTool,
+  getMessageTool,
+  memoryTools,
+  openWebPageTool,
+  viewImageTool,
+} from './tool';
 
 export interface ChatsaltPluginOptions {
   persona: string;
@@ -281,7 +288,11 @@ export const ChatsaltPlugin = definePlugin({
         };
 
         const tools: Record<string, ai.Tool> = {};
-        tools.describe_image = describeImageTool({ ctx, thread, visionModel });
+        if (!options.visionModel || options.visionModel === options.chatModel) {
+          tools.view_image = viewImageTool({ thread });
+        } else {
+          tools.describe_image = describeImageTool({ ctx, thread, visionModel });
+        }
         tools.get_message = getMessageTool({
           ctx,
           scene: data.message_scene,
@@ -336,6 +347,7 @@ export const ChatsaltPlugin = definePlugin({
             }
             switch (e.toolCall.toolName) {
               case 'describe_image':
+              case 'view_image':
                 reactFaceIfNotReacted(face_OpenEyes);
                 break;
               case 'remember':

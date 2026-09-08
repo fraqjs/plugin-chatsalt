@@ -13,6 +13,41 @@ function stringifyError(error: unknown): string {
   return String(error);
 }
 
+export interface ViewImageToolOptions {
+  thread: XmlifyContext;
+}
+
+type ViewImageToolOutput = { ok: true; result: string } | { ok: false; error: string };
+
+export function viewImageTool({ thread }: ViewImageToolOptions): ai.Tool {
+  return ai.tool({
+    description: '查看图片内容',
+    inputSchema: z.object({
+      imageId: z.string().describe('图片的 id'),
+    }),
+    execute: (input): ViewImageToolOutput => {
+      const imageInfo = thread.resources[input.imageId];
+      if (!imageInfo) {
+        return { ok: false, error: `找不到 id 为 ${input.imageId} 的图片资源。` };
+      }
+      return { ok: true, result: imageInfo.url };
+    },
+    toModelOutput: ({ output }) => {
+      if (output.ok) {
+        return {
+          type: 'content',
+          value: [{ type: 'file', mediaType: 'image', data: { type: 'url', url: new URL(output.result) } }],
+        };
+      }
+
+      return {
+        type: 'error-text',
+        value: `查看图片失败: ${output.error}`,
+      };
+    },
+  });
+}
+
 export interface DescribeImageToolOptions {
   ctx: Context;
   thread: XmlifyContext;
@@ -29,9 +64,8 @@ export function describeImageTool({ ctx, thread, visionModel }: DescribeImageToo
     execute: async (input) => {
       const imageInfo = thread.resources[input.imageId];
       if (!imageInfo) {
-        throw new Error(`找不到 id 为 ${input.imageId} 的图片资源。`);
+        return { ok: false, error: `找不到 id 为 ${input.imageId} 的图片资源。` };
       }
-
       try {
         const question = input.question || '请描述这张图片的内容。';
         const { text } = await ai.generateText({

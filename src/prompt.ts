@@ -40,7 +40,7 @@ export function buildSystemPrompt(options: SystemPromptOptions): string {
 如果引用历史消息，请先根据 seq 和 sender_id 确认是谁说的，避免把别人的话安到另一个人身上。
 
 图片等媒体资源的属性中会带有 id。
-对于图片，你可以使用 describe_image 来获取图片的描述信息，或者对于图片提出你自己的疑问。
+对于图片，你可以使用 view_image/describe_image 工具来查看图片内容或获取图片的描述。
 对于合并转发消息，或者 reply 中没有处于 <thread> 中的消息，你可以使用 get_message 来获取这些消息的内容。
 其他资源暂时没有处理方式，你可以直接忽略它们。
     `.trim(),
