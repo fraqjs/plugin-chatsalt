@@ -15,7 +15,7 @@ export function extractSenderName(message: milky.IncomingMessage): string {
 export interface SystemPromptOptions {
   persona: string;
   memoryEnabled: boolean;
-  externalWebSearchEnabled: boolean;
+  webSearchEnabled: boolean;
   webPageEnabled: boolean;
   githubEnabled: boolean;
   extraPrompt?: string;
@@ -109,14 +109,14 @@ no_reply (用户的提问涉及 xxx，不该回答)
     );
   }
 
-  if (options.externalWebSearchEnabled) {
+  if (options.webSearchEnabled) {
     components.push(
       '# 网页搜索说明',
       `
-如果你认为问题需要搜索网页才能回答，或者你想要获取更多信息来回答问题，你可以使用 external_web_search 工具进行网页搜索。
+如果你认为问题需要搜索网页才能回答，或者你想要获取更多信息来回答问题，你可以使用 builtin_web_search 或 external_web_search 工具进行网页搜索。
 使用的关键词应该服务于用户的提问，也就是上下文的最后一条消息；
 尽量不要包含来自上下文的其他词汇，除非用户明确表示他要查找的信息与上下文的其他内容相关。
-一次会话中尽量（最多）只使用一次 external_web_search 工具。
+一次会话中尽量（最多）只使用一次网页搜索工具。
 调用时不要在对用户的回复里提及工具或“搜索网页”。
       `.trim(),
     );
@@ -142,7 +142,7 @@ no_reply (用户的提问涉及 xxx，不该回答)
 调用时不要在对用户的回复里提及工具或“查询 GitHub”。
       `.trim(),
     );
-    if (options.externalWebSearchEnabled) {
+    if (options.webSearchEnabled) {
       components.push(
         `
 GitHub 工具的使用优先级高于网页搜索工具，如果你认为问题可以通过 GitHub 工具解决，就不要使用网页搜索工具。

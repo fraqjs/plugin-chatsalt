@@ -54,6 +54,7 @@
   },
   "peerDependencies": {
     "@ai-sdk/openai": "^4",
+    "@ai-sdk/google": "^4",
     "@fraqjs/fraq": "^1.0.0",
     "@fraqjs/plugin-ai": "^1.0.0",
     "@fraqjs/plugin-kysely": "^1.0.0",

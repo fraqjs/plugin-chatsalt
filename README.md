@@ -62,6 +62,15 @@ plugins:
       maxWindow: 20
       # 对于每个对话场景，最多允许的记忆条数，默认值为 50
       maxScopeCount: 50
+    # 有关模型内置网页搜索工具的配置项
+    # 启用前，请确认你使用的模型是否支持
+    builtinWebSearch:
+      # 是否启用模型内置网页搜索工具，默认值为 false
+      enabled: false
+      # 若启用，使用的工具预设，目前支持：
+      # - google：Gemini 系列模型的内置网页搜索工具
+      # - openai：OpenAI 系列模型的内置网页搜索工具
+      preset: google
     # 有关外部网页搜索工具的配置项
     externalWebSearch:
       # 是否启用外部网页搜索工具，默认值为 false

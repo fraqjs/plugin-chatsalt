@@ -1,3 +1,5 @@
+import { google } from '@ai-sdk/google';
+import { openai } from '@ai-sdk/openai';
 import { definePlugin, type milky, msg, param, seg, serviceToken } from '@fraqjs/fraq';
 import { AiService, ai, createResourceIndex, xmlify, xmlifyThread } from '@fraqjs/plugin-ai';
 import { KyselyService } from '@fraqjs/plugin-kysely';
@@ -35,6 +37,10 @@ export interface ChatsaltPluginOptions {
     enabled?: boolean;
     maxWindow?: number;
     maxScopeCount?: number;
+  };
+  builtinWebSearch?: {
+    enabled?: boolean;
+    preset?: 'openai' | 'google';
   };
   externalWebSearch?: {
     enabled?: boolean;
@@ -103,8 +109,13 @@ export const ChatsaltPlugin = definePlugin({
     const maxMemoryWindow = options.memory?.maxWindow ?? 20;
     const maxMemoryScopeCount = options.memory?.maxScopeCount ?? 50;
 
+    const builtinWebSearchEnabled = options.builtinWebSearch?.enabled ?? false;
+    const builtinWebSearchPreset = options.builtinWebSearch?.preset ?? 'google';
     const externalWebSearchEnabled = options.externalWebSearch?.enabled ?? false;
     const externalWebSearchModel = ctx.ai.model(options.externalWebSearch?.model ?? options.chatModel);
+    if (builtinWebSearchEnabled && externalWebSearchEnabled) {
+      throw new Error('Cannot enable both builtinWebSearch and externalWebSearch at the same time.');
+    }
 
     const webPageEnabled = options.webPage?.enabled ?? false;
     const webPageTimeoutMs = options.webPage?.timeoutMs ?? 10_000;
@@ -126,7 +137,7 @@ export const ChatsaltPlugin = definePlugin({
       content: buildSystemPrompt({
         persona: options.persona,
         memoryEnabled,
-        externalWebSearchEnabled,
+        webSearchEnabled: builtinWebSearchEnabled || externalWebSearchEnabled,
         webPageEnabled,
         githubEnabled,
         extraPrompt: options.extraPrompt,
@@ -302,6 +313,16 @@ export const ChatsaltPlugin = definePlugin({
         });
         if (memoryStore) {
           Object.assign(tools, memoryTools(memoryStore, memoryScope));
+        }
+        if (builtinWebSearchEnabled) {
+          switch (builtinWebSearchPreset) {
+            case 'google':
+              tools.builtin_web_search = google.tools.googleSearch({});
+              break;
+            case 'openai':
+              tools.builtin_web_search = openai.tools.webSearch({});
+              break;
+          }
         }
         if (externalWebSearchEnabled) {
           tools.external_web_search = externalWebSearchTool({ ctx, model: externalWebSearchModel });
