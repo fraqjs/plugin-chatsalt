@@ -454,7 +454,9 @@ export const ChatsaltPlugin = definePlugin({
       information.push(`===== Chatsalt 信息 =====`);
       information.push(`版本: ${pkg.version}`);
       information.push(`对话模型: ${stringifyModel(chatModel)}`);
-      information.push(`视觉模型: ${stringifyModel(visionModel)}`);
+      if (options.visionModel && options.visionModel !== options.chatModel) {
+        information.push(`视觉模型: ${stringifyModel(visionModel)}`);
+      }
       if (externalWebSearchEnabled) {
         information.push(`网页搜索模型: ${stringifyModel(externalWebSearchModel)}`);
       }
