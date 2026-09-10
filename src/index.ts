@@ -275,11 +275,13 @@ export const ChatsaltPlugin = definePlugin({
       });
 
       try {
-        await ctx.client.send_group_message_reaction({
-          group_id: data.peer_id,
-          message_seq: data.message_seq,
-          reaction: String(face_PressButton),
-        }); // this react does not catch, to test message ability
+        if (data.message_scene === 'group') {
+          await ctx.client.send_group_message_reaction({
+            group_id: data.peer_id,
+            message_seq: data.message_seq,
+            reaction: String(face_PressButton),
+          }); // this react does not catch, to test message ability
+        }
         const resourceIndex = createResourceIndex();
         const focused = await xmlify(ctx, data, { maxForwardDepth, resourceIndex });
         const { messages } = await ctx.client.get_history_messages({
