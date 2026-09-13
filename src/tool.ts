@@ -23,9 +23,14 @@ export function viewImageTool({ thread }: ViewImageToolOptions): ai.Tool {
   return ai.tool({
     description: '查看图片内容',
     inputSchema: z.object({
-      imageId: z.string().describe('图片的 id'),
+      imageId: z.string().describe('图片的 id，可以是普通图片 id 或 avatar:QQ号 格式'),
     }),
     execute: (input): ViewImageToolOutput => {
+      if (input.imageId.startsWith('avatar')) {
+        const uin = input.imageId.split(':')[1];
+        return { ok: true, result: `https://q1.qlogo.cn/g?b=qq&nk=${uin}&s=640` };
+      }
+      // normal image resource
       const imageInfo = thread.resources[input.imageId];
       if (!imageInfo) {
         return { ok: false, error: `找不到 id 为 ${input.imageId} 的图片资源。` };
@@ -58,13 +63,20 @@ export function describeImageTool({ ctx, thread, visionModel }: DescribeImageToo
   return ai.tool({
     description: '描述图片内容，或对图片内容提出特定的问题。',
     inputSchema: z.object({
-      imageId: z.string().describe('图片的 id'),
+      imageId: z.string().describe('图片的 id，可以是普通图片 id 或 avatar:QQ号 格式'),
       question: z.string().optional().describe('对图片提出的问题'),
     }),
     execute: async (input) => {
-      const imageInfo = thread.resources[input.imageId];
-      if (!imageInfo) {
-        return { ok: false, error: `找不到 id 为 ${input.imageId} 的图片资源。` };
+      let url: string;
+      if (input.imageId.startsWith('avatar')) {
+        const uin = input.imageId.split(':')[1];
+        url = `https://q1.qlogo.cn/g?b=qq&nk=${uin}&s=640`;
+      } else {
+        const imageInfo = thread.resources[input.imageId];
+        if (!imageInfo) {
+          return { ok: false, error: `找不到 id 为 ${input.imageId} 的图片资源。` };
+        }
+        url = imageInfo.url;
       }
       try {
         const question = input.question || '请描述这张图片的内容。';
@@ -75,7 +87,7 @@ export function describeImageTool({ ctx, thread, visionModel }: DescribeImageToo
               role: 'user',
               content: [
                 { type: 'text', text: question },
-                { type: 'file', mediaType: 'image', data: { type: 'url', url: new URL(imageInfo.url) } },
+                { type: 'file', mediaType: 'image', data: { type: 'url', url: new URL(url) } },
               ],
             },
           ],
