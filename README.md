@@ -66,11 +66,12 @@ plugins:
     # 启用前，请确认你使用的模型是否支持
     builtinWebSearch:
       # 是否启用模型内置网页搜索工具，默认值为 false
+      # 目前仅支持如下 AI SDK 提供的模型：
+      # - @ai-sdk/anthropic
+      # - @ai-sdk/google
+      # - @ai-sdk/openai
+      # 此外，请确认你使用的模型是否支持网页搜索工具，否则启用后可能会导致模型无法正常工作
       enabled: false
-      # 若启用，使用的工具预设，目前支持：
-      # - google：Gemini 系列模型的内置网页搜索工具
-      # - openai：OpenAI 系列模型的内置网页搜索工具
-      preset: google
     # 有关外部网页搜索工具的配置项
     externalWebSearch:
       # 是否启用外部网页搜索工具，默认值为 false

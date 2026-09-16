@@ -1,3 +1,4 @@
+import { anthropic } from '@ai-sdk/anthropic';
 import { google } from '@ai-sdk/google';
 import { openai } from '@ai-sdk/openai';
 import { definePlugin, type milky, msg, param, seg, serviceToken } from '@fraqjs/fraq';
@@ -40,7 +41,6 @@ export interface ChatsaltPluginOptions {
   };
   builtinWebSearch?: {
     enabled?: boolean;
-    preset?: 'openai' | 'google';
   };
   externalWebSearch?: {
     enabled?: boolean;
@@ -110,7 +110,6 @@ export const ChatsaltPlugin = definePlugin({
     const maxMemoryScopeCount = options.memory?.maxScopeCount ?? 50;
 
     const builtinWebSearchEnabled = options.builtinWebSearch?.enabled ?? false;
-    const builtinWebSearchPreset = options.builtinWebSearch?.preset ?? 'google';
     const externalWebSearchEnabled = options.externalWebSearch?.enabled ?? false;
     const externalWebSearchModel = ctx.ai.model(options.externalWebSearch?.model ?? options.chatModel);
     if (builtinWebSearchEnabled && externalWebSearchEnabled) {
@@ -317,13 +316,21 @@ export const ChatsaltPlugin = definePlugin({
           Object.assign(tools, memoryTools(memoryStore, memoryScope));
         }
         if (builtinWebSearchEnabled) {
-          switch (builtinWebSearchPreset) {
-            case 'google':
-              tools.builtin_web_search = google.tools.googleSearch({});
-              break;
-            case 'openai':
-              tools.builtin_web_search = openai.tools.webSearch({});
-              break;
+          if (typeof chatModel === 'string') {
+            throw new Error('Assertion failed: chatModel must be an object when builtinWebSearch is enabled.');
+          } else {
+            // common field for LanguageModelV2/V3/V4
+            switch (chatModel.provider) {
+              case 'anthropic.messages':
+                tools.builtin_web_search = anthropic.tools.webSearch_20260209();
+                break;
+              case 'google.generative-ai':
+                tools.builtin_web_search = google.tools.googleSearch({});
+                break;
+              case 'openai.responses':
+                tools.builtin_web_search = openai.tools.webSearch();
+                break;
+            }
           }
         }
         if (externalWebSearchEnabled) {
