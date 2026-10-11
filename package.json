@@ -23,7 +23,7 @@
     "url": "git+https://github.com/fraqjs/plugin-chatsalt.git"
   },
   "license": "MIT",
-  "packageManager": "pnpm@11.9.0",
+  "packageManager": "pnpm@12.11.2",
   "devDependencies": {
     "@biomejs/biome": "^2.5.11",
     "@fontsource-variable/inter": "^5.3.0",
@@ -54,8 +54,8 @@
   },
   "peerDependencies": {
     "@ai-sdk/anthropic": "^4",
-    "@ai-sdk/openai": "^4",
     "@ai-sdk/google": "^4",
+    "@ai-sdk/openai": "^4",
     "@fraqjs/fraq": "^1.0.0",
     "@fraqjs/plugin-ai": "^1.0.0",
     "@fraqjs/plugin-kysely": "^1.0.0",
