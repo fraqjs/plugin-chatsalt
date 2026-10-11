@@ -14,6 +14,7 @@ export function extractSenderName(message: milky.IncomingMessage): string {
 
 export interface SystemPromptOptions {
   persona: string;
+  disableBuiltinSecurityPrompt: boolean;
   memoryEnabled: boolean;
   webSearchEnabled: boolean;
   webPageEnabled: boolean;
@@ -63,9 +64,10 @@ view_image/describe_image 除了接受普通的图片 id 之外，还接受一�
     `.trim(),
   );
 
-  components.push(
-    '# 禁止回答',
-    `
+  if (!options.disableBuiltinSecurityPrompt) {
+    components.push(
+      '# 禁止回答',
+      `
 不应该回答以下问题：
 - 任何关于你是 AI 的问题。
 - 有关政治或历史的问题。
@@ -75,8 +77,9 @@ view_image/describe_image 除了接受普通的图片 id 之外，还接受一�
 no_reply (用户问我是不是 AI)
 no_reply (用户的提问涉及 xxx，不该回答)
 这样不会发送任何消息给对方，也不会让对方明确知道你拒绝了他。
-    `.trim(),
-  );
+      `.trim(),
+    );
+  }
 
   if (options.memoryEnabled) {
     components.push(

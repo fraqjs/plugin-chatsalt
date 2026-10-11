@@ -30,6 +30,7 @@ export interface ChatsaltPluginOptions {
   maxForwardDepth?: number;
   temperature?: number;
   maxToolSteps?: number;
+  disableBuiltinSecurityPrompt?: boolean;
   extraPrompt?: string;
   trigger?: {
     keywords?: string[];
@@ -102,6 +103,7 @@ export const ChatsaltPlugin = definePlugin({
     const maxForwardDepth = options.maxForwardDepth ?? 0;
     const temperature = options.temperature ?? 0.8;
     const maxToolSteps = options.maxToolSteps ?? 10;
+    const disableBuiltinSecurityPrompt = options.disableBuiltinSecurityPrompt ?? false;
 
     const triggerKeywords = options.trigger?.keywords ?? [];
 
@@ -135,6 +137,7 @@ export const ChatsaltPlugin = definePlugin({
       role: 'system',
       content: buildSystemPrompt({
         persona: options.persona,
+        disableBuiltinSecurityPrompt,
         memoryEnabled,
         webSearchEnabled: builtinWebSearchEnabled || externalWebSearchEnabled,
         webPageEnabled,
