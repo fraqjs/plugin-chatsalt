@@ -322,7 +322,9 @@ export const ChatsaltPlugin = definePlugin({
             // common field for LanguageModelV2/V3/V4
             switch (chatModel.provider) {
               case 'anthropic.messages':
-                tools.builtin_web_search = anthropic.tools.webSearch_20260209();
+                tools.builtin_web_search = anthropic.tools.webSearch_20250305({
+                  maxUses: 1,
+                });
                 break;
               case 'google.generative-ai':
                 tools.builtin_web_search = google.tools.googleSearch({});
