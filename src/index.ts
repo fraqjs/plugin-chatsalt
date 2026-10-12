@@ -1,6 +1,3 @@
-import { anthropic } from '@ai-sdk/anthropic';
-import { google } from '@ai-sdk/google';
-import { openai } from '@ai-sdk/openai';
 import { definePlugin, type milky, msg, param, seg, serviceToken } from '@fraqjs/fraq';
 import { AiService, ai, createResourceIndex, xmlify, xmlifyThread } from '@fraqjs/plugin-ai';
 import { KyselyService } from '@fraqjs/plugin-kysely';
@@ -17,6 +14,7 @@ import {
   getMessageTool,
   memoryTools,
   openWebPageTool,
+  providerWebSearchToolForModel,
   viewImageTool,
 } from './tool';
 
@@ -322,24 +320,11 @@ export const ChatsaltPlugin = definePlugin({
           if (typeof chatModel === 'string') {
             throw new Error('Assertion failed: chatModel must be an object when builtinWebSearch is enabled.');
           } else {
-            // common field for LanguageModelV2/V3/V4
-            switch (chatModel.provider) {
-              case 'anthropic.messages':
-                tools.builtin_web_search = anthropic.tools.webSearch_20250305({
-                  maxUses: 1,
-                });
-                break;
-              case 'google.generative-ai':
-                tools.builtin_web_search = google.tools.googleSearch({});
-                break;
-              case 'openai.responses':
-                tools.builtin_web_search = openai.tools.webSearch();
-                break;
-            }
+            tools.web_search = providerWebSearchToolForModel(chatModel);
           }
         }
         if (externalWebSearchEnabled) {
-          tools.external_web_search = externalWebSearchTool({ ctx, model: externalWebSearchModel });
+          tools.web_search = externalWebSearchTool({ ctx, model: externalWebSearchModel });
         }
         if (webPageEnabled) {
           tools.open_web_page = openWebPageTool({

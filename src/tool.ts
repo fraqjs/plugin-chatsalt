@@ -1,3 +1,5 @@
+import { anthropic } from '@ai-sdk/anthropic';
+import { google } from '@ai-sdk/google';
 import { openai } from '@ai-sdk/openai';
 import type { Context } from '@fraqjs/fraq';
 import { ai, type ResourceIndex, type XmlifyContext, xmlify } from '@fraqjs/plugin-ai';
@@ -159,6 +161,21 @@ export function memoryTools(store: MemoryStore, scope: MemoryScope): Record<'rem
   };
 }
 
+export function providerWebSearchToolForModel(model: ai.LanguageModel): ai.Tool {
+  if (typeof model === 'string') {
+    throw new Error('Type assertion failed: chatModel must be an object when builtinWebSearch is enabled.');
+  }
+  switch (model.provider) {
+    case 'anthropic.messages':
+      return anthropic.tools.webSearch_20250305();
+    case 'google.generative-ai':
+      return google.tools.googleSearch({});
+    case 'openai.responses':
+      return openai.tools.webSearch();
+  }
+  throw new Error(`Unsupported model provider: ${model.provider}`);
+}
+
 export interface ExternalWebSearchToolOptions {
   ctx: Context;
   model: ai.LanguageModel;
@@ -182,12 +199,9 @@ ${input.keywords.join(', ')}
 返回不超过 300 字的摘要。
           `.trim(),
           tools: {
-            web_search: openai.tools.webSearch({
-              searchContextSize: 'low',
-            }),
+            web_search: providerWebSearchToolForModel(model),
           },
           reasoning: 'none',
-          maxOutputTokens: 512,
           maxRetries: 1,
         });
         return { ok: true, result: text };
