@@ -179,8 +179,8 @@ importers:
         specifier: ^1.0.0
         version: 1.1.1
       '@fraqjs/plugin-ai':
-        specifier: ^1.0.0
-        version: 1.1.0(@fraqjs/fraq@1.1.1)
+        specifier: ^1.2.0
+        version: 1.2.0(@fraqjs/fraq@1.1.1)
       '@fraqjs/plugin-kysely':
         specifier: ^1.0.0
         version: 1.1.0(@fraqjs/kernel@1.1.1)
@@ -739,8 +739,8 @@ packages:
     resolution: {integrity: sha512-HGnFL33X2sbD6iH/qvzQGdgfOkHvHVZBunjXWNb18CWfkF1kBTPjRoBGx2YNqIg4s87L4jzEpe+q2JswH2GY3Q==}
     engines: {node: '>=22'}
 
-  '@fraqjs/plugin-ai@1.1.0':
-    resolution: {integrity: sha512-F3gwoOb0iEHtY5ujy4FXaYfsOrNd27DGIUWRrbDsNCcdZkF1LsSt/CjjUscqHrdxDnfG/j5Bal+6k2JwWo5/Ug==}
+  '@fraqjs/plugin-ai@1.2.0':
+    resolution: {integrity: sha512-QhLh+a4X6WEKNrDlTd1yOWiwOlf3BY12u3o9yqgCS4QTq+0jfICBaIgKubmTCjR1tQHytHx2Km3dTTJxOmC90Q==}
     engines: {node: '>=22'}
     peerDependencies:
       '@fraqjs/fraq': ^1.1.1
@@ -4337,7 +4337,7 @@ snapshots:
     dependencies:
       mitt: 3.0.1
 
-  '@fraqjs/plugin-ai@1.1.0(@fraqjs/fraq@1.1.1)':
+  '@fraqjs/plugin-ai@1.2.0(@fraqjs/fraq@1.1.1)':
     dependencies:
       '@ai-sdk/alibaba': 2.0.65(zod@4.6.5)
       '@ai-sdk/anthropic': 4.0.78(zod@4.6.5)

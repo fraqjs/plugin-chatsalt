@@ -57,7 +57,7 @@
     "@ai-sdk/google": "^4",
     "@ai-sdk/openai": "^4",
     "@fraqjs/fraq": "^1.0.0",
-    "@fraqjs/plugin-ai": "^1.0.0",
+    "@fraqjs/plugin-ai": "^1.2.0",
     "@fraqjs/plugin-kysely": "^1.0.0",
     "@fraqjs/plugin-webui-gateway": "^1.0.0",
     "zod": "^4.4.3"

@@ -1,13 +1,14 @@
-import { definePlugin, type milky, msg, param, seg, serviceToken } from '@fraqjs/fraq';
-import { AiService, ai, createResourceIndex, xmlify, xmlifyThread } from '@fraqjs/plugin-ai';
+import { type Context, definePlugin, type milky, msg, param, seg, serviceToken } from '@fraqjs/fraq';
+import { AiService, ai, xmlify } from '@fraqjs/plugin-ai';
 import { KyselyService } from '@fraqjs/plugin-kysely';
 import type { WebuiGatewayService } from '@fraqjs/plugin-webui-gateway';
 import { createGithubTools as githubTools } from '@github-tools/sdk';
 
 import pkg from '../package.json';
 import { ActivityRegistry, summarizeMessage } from './activity';
+import { cacheBreakpoint, cacheLatestStepMessage } from './cache';
 import { MemoryStore } from './memory';
-import { buildConversationContext, buildPrompt, buildSystemPrompt, extractSenderName } from './prompt';
+import { buildPromptMessage, buildSystemPrompt, extractSenderName } from './prompt';
 import {
   describeImageTool,
   externalWebSearchTool,
@@ -15,6 +16,7 @@ import {
   memoryTools,
   openWebPageTool,
   providerWebSearchToolForModel,
+  type ThreadResources,
   viewImageTool,
 } from './tool';
 
@@ -25,6 +27,7 @@ export interface ChatsaltPluginOptions {
 
   owners?: number[];
   contextWindow?: number;
+  contextStep?: number;
   maxForwardDepth?: number;
   temperature?: number;
   maxToolSteps?: number;
@@ -83,6 +86,41 @@ function stringifyError(error: unknown): string {
   return String(error);
 }
 
+const HISTORY_PAGE_LIMIT = 30; // upper bound of get_history_messages' `limit` in the Milky protocol
+
+/**
+ * Fetches the history ending at `message`, starting after a seq anchor that only advances every
+ * `contextStep` messages. Between advances, consecutive requests share the same oldest message and
+ * the thread only grows at its end, so its serialized prefix stays cacheable. The window spans
+ * `contextWindow` to `contextWindow + contextStep - 1` seqs; seqs missing from storage (such as
+ * recalled messages) shrink it without moving the anchor.
+ */
+async function fetchAnchoredHistory(
+  ctx: Context,
+  message: milky.IncomingFriendMessage | milky.IncomingGroupMessage,
+  contextWindow: number,
+  contextStep: number,
+): Promise<milky.IncomingMessage[]> {
+  const anchor = Math.floor((message.message_seq - contextWindow) / contextStep) * contextStep;
+  const history: milky.IncomingMessage[] = [];
+  let startSeq = message.message_seq;
+  while (startSeq > anchor) {
+    const { messages, next_message_seq } = await ctx.client.get_history_messages({
+      message_scene: message.message_scene,
+      peer_id: message.peer_id,
+      start_message_seq: startSeq,
+      limit: Math.min(HISTORY_PAGE_LIMIT, startSeq - anchor),
+    });
+    const oldestSeq = history[0]?.message_seq ?? Number.POSITIVE_INFINITY;
+    history.unshift(...messages.filter((m) => m.message_seq > anchor && m.message_seq < oldestSeq));
+    if (next_message_seq == null || next_message_seq >= startSeq) {
+      break;
+    }
+    startSeq = next_message_seq;
+  }
+  return history;
+}
+
 export const ChatsaltPlugin = definePlugin({
   name: 'chatsalt',
   inject: {
@@ -98,6 +136,13 @@ export const ChatsaltPlugin = definePlugin({
 
     const owners = options.owners ?? [];
     const contextWindow = options.contextWindow ?? 20;
+    const contextStep = options.contextStep ?? 10;
+    if (!Number.isInteger(contextWindow) || contextWindow < 1) {
+      throw new Error('contextWindow must be a positive integer.');
+    }
+    if (!Number.isInteger(contextStep) || contextStep < 1) {
+      throw new Error('contextStep must be a positive integer.');
+    }
     const maxForwardDepth = options.maxForwardDepth ?? 0;
     const temperature = options.temperature ?? 0.8;
     const maxToolSteps = options.maxToolSteps ?? 10;
@@ -142,11 +187,7 @@ export const ChatsaltPlugin = definePlugin({
         githubEnabled,
         extraPrompt: options.extraPrompt,
       }),
-      providerOptions: {
-        anthropic: {
-          cacheControl: { type: 'ephemeral' },
-        },
-      },
+      providerOptions: cacheBreakpoint,
     };
 
     let memoryStore: MemoryStore | undefined;
@@ -282,18 +323,20 @@ export const ChatsaltPlugin = definePlugin({
             reaction: String(face_PressButton),
           }); // this react does not catch, to test message ability
         }
-        const resourceIndex = createResourceIndex();
-        const focused = await xmlify(ctx, data, { maxForwardDepth, resourceIndex });
-        const { messages } = await ctx.client.get_history_messages({
-          message_scene: data.message_scene,
-          peer_id: data.peer_id,
-          start_message_seq: data.message_seq,
-          limit: contextWindow,
-        });
-        const thread = await xmlifyThread(ctx, messages, { maxForwardDepth, resourceIndex });
-        Object.assign(thread.resources, focused.resources);
-        Object.assign(thread.files, focused.files);
-        Object.assign(thread.forwards, focused.forwards);
+        const history = await fetchAnchoredHistory(ctx, data, contextWindow, contextStep);
+        // The history normally ends with the triggering message; append it if storage has not caught up.
+        const threadMessages = history.some((message) => message.message_seq === data.message_seq)
+          ? history
+          : [...history, data];
+        const thread: ThreadResources = { resources: {}, files: {}, forwards: {} };
+        const threadXml: string[] = [];
+        for (const message of threadMessages) {
+          const rendered = await xmlify(ctx, message, { maxForwardDepth, inThread: true });
+          threadXml.push(rendered.xmlContent);
+          Object.assign(thread.resources, rendered.resources);
+          Object.assign(thread.files, rendered.files);
+          Object.assign(thread.forwards, rendered.forwards);
+        }
         const memoryScope = {
           selfId: self_id,
           scene: data.message_scene,
@@ -311,7 +354,6 @@ export const ChatsaltPlugin = definePlugin({
           scene: data.message_scene,
           peerId: data.peer_id,
           thread,
-          resourceIndex,
         });
         if (memoryStore) {
           Object.assign(tools, memoryTools(memoryStore, memoryScope));
@@ -341,26 +383,23 @@ export const ChatsaltPlugin = definePlugin({
 
         const { text } = await ai.generateText({
           model: chatModel,
-          system: [
-            systemPrompt,
-            {
-              role: 'system',
-              content: buildConversationContext({
-                selfId: self_id,
-                scene: data.message_scene,
-                senderId: data.sender_id,
-                senderName,
-              }),
-            },
+          instructions: systemPrompt,
+          messages: [
+            buildPromptMessage({
+              selfId: self_id,
+              scene: data.message_scene,
+              peerId: data.peer_id,
+              senderId: data.sender_id,
+              senderName,
+              messageSeq: data.message_seq,
+              thread: threadXml,
+              memories: await memoryStore?.recall(memoryScope),
+            }),
           ],
-          prompt: buildPrompt({
-            focused: focused.xmlContent,
-            thread: thread.xmlContent,
-            memories: await memoryStore?.recall(memoryScope),
-          }),
           tools: tools,
           temperature: temperature,
           stopWhen: ai.stepCountIs(maxToolSteps),
+          prepareStep: cacheLatestStepMessage,
           onToolExecutionStart: (e) => {
             if (debug_logAllToolCalls) {
               ctx.logger.debug(`Tool call (${e.toolCall.toolName}) <- ${JSON.stringify(e.toolCall.input)}`);

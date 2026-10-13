@@ -1,5 +1,7 @@
 import type { milky } from '@fraqjs/fraq';
+import type { ai } from '@fraqjs/plugin-ai';
 
+import { cacheBreakpoint } from './cache';
 import type { MemoryEntry } from './memory';
 
 export function extractSenderName(message: milky.IncomingMessage): string {
@@ -35,7 +37,7 @@ export function buildSystemPrompt(options: SystemPromptOptions): string {
 <message> 包含一个 <content> 元素，其中包含当前消息的内容。
 此外还有 <friend>、<group> 和 <group_member> 元素，分别包含当前聊天的好友、群聊和群成员信息。
 <group_member> 会同时包含 <card> 和 <nickname> 元素，分别表示群名片和昵称。如果二者同时存在，则以群名片（card）为准确定称呼。
-当前消息位于 <thread> 的最后一条消息中。
+你需要回复的消息是 <thread> 中的最后一条，上下文之后的「场景」部分会给出它的 seq。
 
 认人永远以 **QQ 号**为准，昵称只作参考。
 如果引用历史消息，请先根据 seq 和 sender_id 确认是谁说的，避免把别人的话安到另一个人身上。
@@ -85,11 +87,11 @@ no_reply (用户的提问涉及 xxx，不该回答)
     components.push(
       '# 记忆说明',
       `
-系统会提供一份 <memories> 列表，是你对当前会话/对方已保存的长期记忆。
+上下文之后会提供一份「记忆」列表，是你对当前会话/对方已保存的长期记忆。
 写回复前先扫一遍；能用记忆就自然用上，但不要主动炫耀“我记得你”。
 
 你可以使用 remember / forget 管理记忆。调用时不要在对用户的回复里提及工具或“记笔记”。
-记忆中不要包含 image1、image2 等资源的 ID，因为这个 ID 是不稳定的。也不要包含 seq 等上下文信息，因为这些信息是无意义的。
+记忆中不要包含图片等资源的 id，因为资源链接会过期，之后无法再查看。也不要包含 seq 等上下文信息，因为这些信息是无意义的。
 对于同一件事情可以只保留一条记忆，而删除较早的重复记忆。记忆内容应尽量简短、客观、稳定，避免使用模糊词汇。
 
 何时 remember：
@@ -99,7 +101,7 @@ no_reply (用户的提问涉及 xxx，不该回答)
 
 何时不要 remember：
 - 一时情绪、单次事件、无后续价值的闲聊。
-- 已在 <memories> 中存在的相同事实。
+- 已在记忆列表中存在的相同事实。
 - 隐私敏感信息（密码、证件、精确住址、手机号等）。
 - 不确定或道听途说的内容。
 
@@ -163,39 +165,39 @@ GitHub 工具的使用优先级高于网页搜索工具，如果你认为问题�
   return components.join('\n\n');
 }
 
-export interface ConversationContextOptions {
+export interface PromptMessageOptions {
   selfId: number;
   scene: 'friend' | 'group';
+  peerId: number;
   senderId: number;
   senderName: string;
-}
-
-export function buildConversationContext(options: ConversationContextOptions): string {
-  return [
-    '# 场景',
-    `
-你的 QQ 号是 ${options.selfId}。
-当前的会话场景是 ${options.scene === 'friend' ? '好友' : '群聊'}。
-当前说话人为“${options.senderName}”，QQ 号为 ${options.senderId}。
-    `.trim(),
-  ].join('\n\n');
-}
-
-export interface PromptOptions {
-  focused: string;
-  thread: string;
+  /** Seq of the message being replied to, which is the last entry of `thread`. */
+  messageSeq: number;
+  /** Serialized `<message>` elements in seq order, rendered with `inThread`. */
+  thread: string[];
   memories?: MemoryEntry[];
 }
 
-export function buildPrompt(options: PromptOptions) {
-  const components: string[] = [];
+/**
+ * Builds the user message from the most to the least stable content, so consecutive requests in the
+ * same conversation share the longest possible prefix: the thread only grows at its end, while the
+ * memories and the per-request scene come after it and never invalidate it.
+ *
+ * Each thread message is a separate text part. Anthropic caches by content block, so marking the
+ * newest message lets the next request, which appends to the thread, find this prefix within its
+ * lookback window. Providers that merge text parts into one string (such as DeepSeek) do so without
+ * a separator, hence every part ends with a newline.
+ */
+export function buildPromptMessage(options: PromptMessageOptions): ai.UserModelMessage {
+  const threadParts: ai.TextPart[] = options.thread.map((xml) => ({ type: 'text', text: `${xml}\n` }));
+  const newest = threadParts.at(-1);
+  if (newest) {
+    newest.providerOptions = cacheBreakpoint;
+  }
 
-  components.push('# 当前消息', options.focused);
-
-  components.push('# 上下文', options.thread);
-
+  const tail: string[] = ['</thread>'];
   if (options.memories && options.memories.length > 0) {
-    components.push(
+    tail.push(
       '# 记忆',
       `
 当前会话对象的记忆有：
@@ -206,6 +208,22 @@ id 仅用于 forget，回复中不要出现 id。
       `.trim(),
     );
   }
+  tail.push(
+    '# 场景',
+    `
+你的 QQ 号是 ${options.selfId}。
+当前的会话场景是 ${options.scene === 'friend' ? '好友' : '群聊'}。
+当前说话人为“${options.senderName}”，QQ 号为 ${options.senderId}。
+你需要回复的是 <thread> 中的最后一条消息，seq 为 ${options.messageSeq}。
+    `.trim(),
+  );
 
-  return components.join('\n\n');
+  return {
+    role: 'user',
+    content: [
+      { type: 'text', text: `# 上下文\n\n<thread scene="${options.scene}" peer_id="${options.peerId}">\n` },
+      ...threadParts,
+      { type: 'text', text: tail.join('\n\n') },
+    ],
+  };
 }

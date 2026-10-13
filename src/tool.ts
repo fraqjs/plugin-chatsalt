@@ -2,7 +2,7 @@ import { anthropic } from '@ai-sdk/anthropic';
 import { google } from '@ai-sdk/google';
 import { openai } from '@ai-sdk/openai';
 import type { Context } from '@fraqjs/fraq';
-import { ai, type ResourceIndex, type XmlifyContext, xmlify } from '@fraqjs/plugin-ai';
+import { ai, type XmlifyContext, xmlify } from '@fraqjs/plugin-ai';
 import z from 'zod';
 
 import type { MemoryScope, MemoryStore } from './memory';
@@ -15,8 +15,11 @@ function stringifyError(error: unknown): string {
   return String(error);
 }
 
+/** Resources referenced by the thread, keyed by the stable ids that appear in its XML. */
+export type ThreadResources = Omit<XmlifyContext, 'xmlContent'>;
+
 export interface ViewImageToolOptions {
-  thread: XmlifyContext;
+  thread: ThreadResources;
 }
 
 type ViewImageToolOutput = { ok: true; result: string } | { ok: false; error: string };
@@ -57,7 +60,7 @@ export function viewImageTool({ thread }: ViewImageToolOptions): ai.Tool {
 
 export interface DescribeImageToolOptions {
   ctx: Context;
-  thread: XmlifyContext;
+  thread: ThreadResources;
   visionModel: ai.LanguageModel;
 }
 
@@ -107,11 +110,10 @@ export interface GetMessageToolOptions {
   ctx: Context;
   scene: 'friend' | 'group';
   peerId: number;
-  thread: XmlifyContext;
-  resourceIndex: ResourceIndex;
+  thread: ThreadResources;
 }
 
-export function getMessageTool({ ctx, scene, peerId, thread, resourceIndex }: GetMessageToolOptions): ai.Tool {
+export function getMessageTool({ ctx, scene, peerId, thread }: GetMessageToolOptions): ai.Tool {
   return ai.tool({
     description: '获取指定消息的内容，包括合并转发消息的具体内容',
     inputSchema: z.object({
@@ -125,9 +127,10 @@ export function getMessageTool({ ctx, scene, peerId, thread, resourceIndex }: Ge
       });
       const { xmlContent, resources, files, forwards } = await xmlify(ctx, message, {
         maxForwardDepth: 1,
-        resourceIndex,
+        inThread: true,
       });
-      // merge fetched resources, files, and forwards into the current thread
+      // Resource keys depend only on the message and their position in it, so merging never
+      // reassigns a key the thread already uses to a different resource.
       Object.assign(thread.resources, resources);
       Object.assign(thread.files, files);
       Object.assign(thread.forwards, forwards);
