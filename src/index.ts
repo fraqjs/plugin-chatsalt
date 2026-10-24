@@ -6,6 +6,9 @@ import { createGithubTools as githubTools } from '@github-tools/sdk';
 
 import pkg from '../package.json';
 import { ActivityRegistry, summarizeMessage } from './activity';
+import { DEFAULT_JEV_BASE_URL, JevClient } from './auto/jev';
+import { defaultThresholds, type ReplyReason, type Thresholds } from './auto/judge';
+import { AutoScheduler } from './auto/scheduler';
 import { cacheBreakpoint, cacheLatestStepMessage } from './cache';
 import { MemoryStore } from './memory';
 import { buildPromptMessage, buildSystemPrompt, extractSenderName } from './prompt';
@@ -64,6 +67,32 @@ export interface ChatsaltPluginOptions {
     conversationLimit?: number;
     warningLimit?: number;
     memoryLimit?: number;
+    autoDecisionLimit?: number;
+  };
+  auto?: {
+    enabled?: boolean;
+    groups: number[];
+    shadow?: boolean;
+    jev: {
+      apiKey: string;
+      model?: string;
+      /** API root ending in `/v1`; defaults to https://api.typesafe.ai/v1. */
+      baseURL?: string;
+      timeoutMs?: number;
+      maxRetries?: number;
+    };
+    names: string[];
+    expertise: string;
+    avoidTopics?: string[];
+    stateMessages?: number;
+    debounceMs?: number;
+    maxBurstWaitMs?: number;
+    budget?: {
+      perHour?: number;
+      minIntervalMs?: number;
+    };
+    muteOnComplaintMs?: number;
+    thresholds?: Partial<Thresholds>;
   };
 
   debug?: {
@@ -201,7 +230,58 @@ export const ChatsaltPlugin = definePlugin({
     const activity = new ActivityRegistry({
       conversationLimit: options.webui?.conversationLimit ?? 100,
       warningLimit: options.webui?.warningLimit ?? 100,
+      autoDecisionLimit: options.webui?.autoDecisionLimit ?? 300,
     });
+    const autoEnabled = options.auto?.enabled ?? false;
+    const autoShadow = options.auto?.shadow ?? false;
+    let autoScheduler: AutoScheduler | undefined;
+    let autoExpertise = '';
+    if (autoEnabled && options.auto) {
+      const auto = options.auto;
+      if (!auto.jev?.apiKey) {
+        throw new Error('auto.jev.apiKey is required when auto mode is enabled.');
+      }
+      if (!auto.expertise?.trim()) {
+        throw new Error('auto.expertise is required when auto mode is enabled.');
+      }
+      if (!Array.isArray(auto.groups) || auto.groups.length === 0) {
+        throw new Error('auto.groups must list at least one group when auto mode is enabled.');
+      }
+      autoExpertise = auto.expertise.trim();
+      const jev = new JevClient({
+        apiKey: auto.jev.apiKey,
+        model: auto.jev.model ?? 'jev-1.14.0',
+        baseURL: auto.jev.baseURL ?? DEFAULT_JEV_BASE_URL,
+        timeoutMs: auto.jev.timeoutMs ?? 5_000,
+        maxRetries: auto.jev.maxRetries ?? 2,
+      });
+      autoScheduler = new AutoScheduler(
+        jev,
+        activity,
+        ctx.logger,
+        (selfId, message, reason) => runChat(selfId, message, reason),
+        (delayMs, callback) => ctx.timeout(delayMs, callback),
+        {
+          groups: new Set(auto.groups),
+          profile: {
+            names: auto.names ?? [],
+            expertise: autoExpertise,
+            avoidTopics: auto.avoidTopics ?? ['politics', 'history', 'romance or sexual content'],
+          },
+          thresholds: { ...defaultThresholds, ...auto.thresholds },
+          stateMessages: auto.stateMessages ?? 8,
+          debounceMs: auto.debounceMs ?? 3_000,
+          maxBurstWaitMs: auto.maxBurstWaitMs ?? 10_000,
+          perHour: auto.budget?.perHour ?? 3,
+          minIntervalMs: auto.budget?.minIntervalMs ?? 10 * 60_000,
+          muteOnComplaintMs: auto.muteOnComplaintMs ?? 6 * 3_600_000,
+        },
+      );
+      ctx.logger.info(
+        `Chatsalt auto mode enabled for ${auto.groups.length} group(s) with ${jev.model}${autoShadow ? ' (shadow)' : ''}`,
+      );
+    }
+
     const memoryRecordLimit = options.webui?.memoryLimit ?? 500;
     if (ctx.webui && (options.webui?.enabled ?? true)) {
       ctx.webui.mount({
@@ -211,6 +291,13 @@ export const ChatsaltPlugin = definePlugin({
             c.json({
               conversations: activity.listConversations(),
               warnings: activity.listWarnings(),
+            }),
+          );
+          api.get('/auto', (c) =>
+            c.json({
+              enabled: autoScheduler !== undefined,
+              shadow: autoShadow,
+              decisions: activity.listAutoDecisions(),
             }),
           );
           api.get('/memories', async (c) =>
@@ -261,13 +348,30 @@ export const ChatsaltPlugin = definePlugin({
     }
 
     ctx.on('message_receive', async ({ self_id, data }) => {
-      if (!shouldTriggerChat(self_id, data)) {
+      const triggered = shouldTriggerChat(self_id, data);
+      if (data.message_scene === 'group') {
+        autoScheduler?.observe(self_id, data, triggered);
+      }
+      if (!triggered || data.message_scene === 'temp') {
         return;
       }
-      if (data.message_scene === 'temp') {
-        return;
+      if (data.message_scene === 'group' && autoScheduler) {
+        await autoScheduler.runExclusive(data.peer_id, () => runChat(self_id, data));
+      } else {
+        await runChat(self_id, data);
       }
+    });
 
+    /**
+     * Generates and sends a reply to `data`. With `autoReason`, auto mode decided to speak: no reactions are
+     * shown, `no_reply` always suppresses the reply, and shadow mode records the reply without sending it.
+     */
+    async function runChat(
+      self_id: number,
+      data: milky.IncomingFriendMessage | milky.IncomingGroupMessage,
+      autoReason?: ReplyReason,
+    ): Promise<void> {
+      const isAuto = autoReason !== undefined;
       const startedAt = performance.now();
       let toolCallCount = 0;
       let toolDurationMs = 0;
@@ -282,7 +386,7 @@ export const ChatsaltPlugin = definePlugin({
       const face_Tremble = 41; // error
 
       async function reactFaceIfNotReacted(faceId: number) {
-        if (data.message_scene === 'group' && !reactedFaces.has(faceId)) {
+        if (data.message_scene === 'group' && !isAuto && !reactedFaces.has(faceId)) {
           try {
             await ctx.client.send_group_message_reaction({
               group_id: data.peer_id,
@@ -308,6 +412,7 @@ export const ChatsaltPlugin = definePlugin({
         senderName,
         messageSeq: data.message_seq,
       };
+      const conversationContext = { ...recordContext, input: summarizeMessage(data), autoReason };
       const getActivityMetrics = () => ({
         durationMs: performance.now() - startedAt,
         toolCallCount,
@@ -316,7 +421,7 @@ export const ChatsaltPlugin = definePlugin({
       });
 
       try {
-        if (data.message_scene === 'group') {
+        if (data.message_scene === 'group' && !isAuto) {
           await ctx.client.send_group_message_reaction({
             group_id: data.peer_id,
             message_seq: data.message_seq,
@@ -394,6 +499,7 @@ export const ChatsaltPlugin = definePlugin({
               messageSeq: data.message_seq,
               thread: threadXml,
               memories: await memoryStore?.recall(memoryScope),
+              auto: autoReason ? { reason: autoReason, expertise: autoExpertise } : undefined,
             }),
           ],
           tools: tools,
@@ -450,46 +556,61 @@ export const ChatsaltPlugin = definePlugin({
           },
         });
 
-        if (!debug_respondRejectedMessages) {
-          if (text.trimStart().startsWith('no_reply')) {
-            ctx.logger.warn(
-              `Rejected message from ${data.sender_id} in ${data.message_scene} ${data.peer_id}: ${text}`,
-            );
-            activity.recordConversation({
-              ...recordContext,
-              input: summarizeMessage(data),
-              output: text,
-              outcome: 'rejected',
-              ...getActivityMetrics(),
-            });
-            activity.recordWarning({
-              ...recordContext,
-              kind: 'rejected',
-              message: '模型拒绝回复',
-              detail: text,
-            });
-            reactFaceIfNotReacted(face_Reject);
-            return;
-          }
+        const declined = text.trimStart().startsWith('no_reply');
+        if (isAuto && declined) {
+          // Declining is the expected way out of an auto-mode interjection, not a warning.
+          activity.recordConversation({
+            ...conversationContext,
+            output: text,
+            outcome: 'skipped',
+            ...getActivityMetrics(),
+          });
+          return;
+        }
+        if (declined && !debug_respondRejectedMessages) {
+          ctx.logger.warn(`Rejected message from ${data.sender_id} in ${data.message_scene} ${data.peer_id}: ${text}`);
+          activity.recordConversation({
+            ...conversationContext,
+            output: text,
+            outcome: 'rejected',
+            ...getActivityMetrics(),
+          });
+          activity.recordWarning({
+            ...recordContext,
+            kind: 'rejected',
+            message: '模型拒绝回复',
+            detail: text,
+          });
+          reactFaceIfNotReacted(face_Reject);
+          return;
         }
 
+        if (isAuto && autoShadow) {
+          activity.recordConversation({
+            ...conversationContext,
+            output: text,
+            outcome: 'shadow',
+            ...getActivityMetrics(),
+          });
+          return;
+        }
+
+        // An interjection on the newest message reads more naturally without a quote.
+        const quote =
+          !isAuto || data.message_scene !== 'group' || autoScheduler?.hasNewerMessage(data.peer_id, data.message_seq);
+        const message = quote ? msg`${seg.reply(data.message_seq)}${text}` : msg`${text}`;
         switch (data.message_scene) {
           case 'friend':
-            await ctx.client.send_private_message({
-              user_id: data.sender_id,
-              message: msg`${seg.reply(data.message_seq)}${text}`,
-            });
+            await ctx.client.send_private_message({ user_id: data.sender_id, message });
             break;
-          case 'group':
-            await ctx.client.send_group_message({
-              group_id: data.peer_id,
-              message: msg`${seg.reply(data.message_seq)}${text}`,
-            });
+          case 'group': {
+            const sent = await ctx.client.send_group_message({ group_id: data.peer_id, message });
+            autoScheduler?.recordBotMessage(data.peer_id, sent.message_seq, text);
             break;
+          }
         }
         activity.recordConversation({
-          ...recordContext,
-          input: summarizeMessage(data),
+          ...conversationContext,
           output: text,
           outcome: 'replied',
           ...getActivityMetrics(),
@@ -498,13 +619,13 @@ export const ChatsaltPlugin = definePlugin({
         activity.recordWarning({
           ...recordContext,
           kind: 'generation',
-          message: '对话处理失败',
+          message: isAuto ? '自动模式对话处理失败' : '对话处理失败',
           detail: stringifyError(error),
         });
         reactFaceIfNotReacted(face_Tremble);
         ctx.logger.error('对话处理失败', error);
       }
-    });
+    }
 
     const chatsalt = ctx.router.group('chatsalt');
 

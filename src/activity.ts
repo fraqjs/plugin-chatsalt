@@ -1,7 +1,35 @@
 import type { milky } from '@fraqjs/fraq';
 
-export type ConversationOutcome = 'replied' | 'rejected';
-export type WarningKind = 'generation' | 'rejected' | 'tool';
+/** `skipped`: the model declined an auto-mode reply; `shadow`: generated in shadow mode, not sent. */
+export type ConversationOutcome = 'replied' | 'rejected' | 'skipped' | 'shadow';
+export type WarningKind = 'generation' | 'rejected' | 'tool' | 'auto';
+
+export type AutoVerdict = 'reply' | 'silent' | 'mute' | 'error';
+/**
+ * What became of a judged message once its burst settled:
+ * `selected` went on to generation; `superseded` lost to another message of the same burst;
+ * `budget`/`busy`/`muted` were blocked by the scheduler; `direct` was overtaken by a direct trigger.
+ */
+export type AutoOutcome = 'pending' | 'selected' | 'superseded' | 'budget' | 'busy' | 'muted' | 'direct' | 'ignored';
+
+export interface AutoDecisionRecord {
+  id: number;
+  createdAt: number;
+  selfId: number;
+  groupId: number;
+  senderId: number;
+  senderName: string;
+  messageSeq: number;
+  input: string;
+  verdict: AutoVerdict;
+  reason: string;
+  outcome: AutoOutcome;
+  answers?: Record<string, number | string>;
+  model?: string;
+  inputTokens?: number;
+  latencyMs: number;
+  error?: string;
+}
 
 export interface ToolActivityRecord {
   name: string;
@@ -21,6 +49,8 @@ export interface ConversationRecord {
   input: string;
   output: string;
   outcome: ConversationOutcome;
+  /** Set for auto-mode conversations: why the bot decided to speak. */
+  autoReason?: string;
   durationMs: number;
   toolCallCount: number;
   toolDurationMs: number;
@@ -44,10 +74,12 @@ export interface WarningRecord {
 export interface ActivityRegistryOptions {
   conversationLimit: number;
   warningLimit: number;
+  autoDecisionLimit: number;
 }
 
 type NewConversationRecord = Omit<ConversationRecord, 'id' | 'createdAt'> & { createdAt?: number };
 type NewWarningRecord = Omit<WarningRecord, 'id' | 'createdAt'> & { createdAt?: number };
+type NewAutoDecisionRecord = Omit<AutoDecisionRecord, 'id' | 'createdAt'> & { createdAt?: number };
 
 function pushBounded<T>(records: T[], record: T, limit: number): void {
   if (limit === 0) {
@@ -104,8 +136,25 @@ export class ActivityRegistry {
   private readonly warnings: WarningRecord[] = [];
   private nextConversationId = 1;
   private nextWarningId = 1;
+  private readonly autoDecisions: AutoDecisionRecord[] = [];
+  private nextAutoDecisionId = 1;
 
   constructor(private readonly options: ActivityRegistryOptions) {}
+
+  /** The returned record is live: the scheduler updates its `outcome` once the burst settles. */
+  recordAutoDecision(record: NewAutoDecisionRecord): AutoDecisionRecord {
+    const stored = {
+      ...record,
+      id: this.nextAutoDecisionId++,
+      createdAt: record.createdAt ?? Date.now(),
+    };
+    pushBounded(this.autoDecisions, stored, this.options.autoDecisionLimit);
+    return stored;
+  }
+
+  listAutoDecisions(): readonly AutoDecisionRecord[] {
+    return [...this.autoDecisions];
+  }
 
   recordConversation(record: NewConversationRecord): ConversationRecord {
     const stored = {

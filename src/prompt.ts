@@ -176,6 +176,37 @@ export interface PromptMessageOptions {
   /** Serialized `<message>` elements in seq order, rendered with `inThread`. */
   thread: string[];
   memories?: MemoryEntry[];
+  /** Set when auto mode, not a mention or keyword, decided to speak. */
+  auto?: {
+    reason: 'implicit_address' | 'continuation' | 'in_domain_question';
+    expertise: string;
+  };
+}
+
+function buildAutoSection(auto: NonNullable<PromptMessageOptions['auto']>): string {
+  const common = `
+- 如果你要回答的问题在 <thread> 中已经有人回答了，或者话题已经过去了，直接输出 no_reply。
+- 一到两句话。不要开场白，不要复述或总结群友说过的话。
+- 输出 no_reply 不会发送任何消息，也不会被任何人察觉。
+  `.trim();
+  if (auto.reason === 'in_domain_question') {
+    return `
+这次没有人叫你，是你自己决定开口的：群里有人在问你擅长领域内的问题。
+你擅长的领域是：${auto.expertise}
+
+- 只有在你能给出具体、确定的信息（名称、数字、做法）时才说话。拿不准、需要猜，或者只能说「好厉害」「确实」之类附和的话，直接输出 no_reply。
+- 只聊和你擅长领域有关的内容，不要顺着话题延伸到别的领域。
+${common}
+    `.trim();
+  }
+  const why =
+    auto.reason === 'implicit_address'
+      ? '对方没有 @ 你，但看起来是在叫你或问你。'
+      : '对方没有引用你的消息，但看起来是在接你刚才说的话。';
+  return `
+${why}如果仔细看完上下文后发现对方其实不是在跟你说话，直接输出 no_reply。
+${common}
+  `.trim();
 }
 
 /**
@@ -217,6 +248,9 @@ id 仅用于 forget，回复中不要出现 id。
 你需要回复的是 <thread> 中的最后一条消息，seq 为 ${options.messageSeq}。
     `.trim(),
   );
+  if (options.auto) {
+    tail.push('# 主动插话', buildAutoSection(options.auto));
+  }
 
   return {
     role: 'user',

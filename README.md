@@ -113,6 +113,56 @@ plugins:
       warningLimit: 100
       # WebUI 最多查询的记忆条数，默认值为 500
       memoryLimit: 500
+      # 内存中最多保留的自动判断记录数，默认值为 300
+      autoDecisionLimit: 300
+    # 有关自动模式（实验性）的配置项，见下方「自动模式」一节
+    auto:
+      # 是否启用自动模式，默认值为 false
+      enabled: false
+      # 启用自动模式的群号白名单，必填
+      groups: [123456789]
+      # 影子模式：照常判断和生成回复，但不发送，只记录到 WebUI，默认值为 false
+      shadow: true
+      jev:
+        # TypeSafe API Key，必填
+        apiKey: ${{ env:TYPESAFE_API_KEY }}
+        # TypeSafe API 地址，必须以 /v1 结尾，默认值为 https://api.typesafe.ai/v1
+        # 可替换为兼容 System One 接口的代理或自建服务，请求会发送到 <baseURL>/systemone
+        baseURL: https://api.typesafe.ai/v1
+        # 使用的 Jev 模型，默认值为 jev-1.14.0。建议固定版本号而不是 jev-latest，避免模型更新后阈值失效
+        model: jev-1.14.0
+        # 单次请求超时，默认值为 5000 毫秒；超时或出错时视为不发言
+        timeoutMs: 5000
+      # 机器人的名字和别名，用于识别「没有 @ 但在叫机器人」的消息
+      names: [纱露朵, 盐, bot, 机器人]
+      # 机器人擅长的领域，必填。只有在这个范围内，机器人才会主动插话。
+      # Jev 以英文训练为主，推荐用英文描述，可以夹带中文专有名词
+      expertise: 'maimai DX (舞萌) rhythm game: charts, difficulty constants, rating, song unlocks, play technique.'
+      # 不参与的话题，默认值为 [politics, history, romance or sexual content]
+      avoidTopics: [politics, history, romance or sexual content]
+      # 提供给 Jev 的上下文消息条数，默认值为 8
+      stateMessages: 8
+      # 群里安静多久后才做决定，默认值为 3000 毫秒
+      debounceMs: 3000
+      # 刷屏时最多等待多久后做决定，默认值为 10000 毫秒
+      maxBurstWaitMs: 10000
+      # 主动插话的配额（被叫到和接话不受限制）
+      budget:
+        # 每个群每小时最多主动插话次数，默认值为 3
+        perHour: 3
+        # 两次主动插话的最小间隔，默认值为 600000 毫秒（10 分钟）
+        minIntervalMs: 600000
+      # 有人嫌机器人烦时，自动模式在该群静音的时长，默认值为 21600000 毫秒（6 小时）
+      muteOnComplaintMs: 21600000
+      # 判断阈值，一般不需要修改，可在 WebUI「自动判断」页观察概率后调整
+      thresholds:
+        addressed: 0.75       # 判定「在叫机器人」的最低概率
+        continuation: 0.7     # 判定「在接机器人的话」的最低概率
+        topicFit: 2.3         # 主动插话要求的话题相关度（0-3）
+        invitesInput: 0.7     # 主动插话要求的「确实在提问」概率
+        privateExchange: 0.4  # 高于此值视为别人在私聊，不插话
+        sensitive: 0.6        # 高于此值视为敏感话题，一律沉默
+        wantsBotQuiet: 0.7    # 高于此值视为嫌机器人烦，触发静音
 ```
 
 安装并配置 `fraqjs/webui-gateway` 后，可通过 `/webui/chatsalt/` 查看对话、警告和记忆记录。WebUI 由
@@ -139,6 +189,27 @@ Gateway 统一鉴权；如果未安装 Gateway，Chatsalt 不会注册任何 Web
 用户: @纱露朵 你好呀~
 纱露朵: 你好呀，我是纱露朵，请多关照的说喵~
 ```
+
+## 自动模式（实验性）
+
+启用后，机器人会在白名单群里自己判断是否开口，不需要 @。判断由 TypeSafe 的决策模型 [Jev](https://docs.typesafe.ai/) 完成，它只返回概率，不生成文字，每条消息的判断成本极低。
+
+机器人只会在三种情况下开口：
+
+1. **被叫到**：没有 @，但叫了 `names` 中的名字并且在跟机器人说话。
+2. **接话**：机器人刚说过话，有人没引用就接着说。
+3. **主动插话**：最新一条消息是在认真提问，话题属于 `expertise`，并且不是别人之间的私聊。这种情况受 `budget` 配额限制。
+
+此外：
+
+- 群里刷屏时，机器人会等安静下来再判断，同一批消息最多回复一条。
+- 敏感话题一律沉默。如果有人嫌机器人烦，自动模式会在该群静音一段时间。
+- 对话模型仍可以输出 `no_reply` 放弃发言。在自动模式下，这不会产生警告。
+- 自动模式下机器人不会给消息加表情回应。主动插话回复的是最新消息时，不会引用原消息。
+
+建议先开启 `shadow: true` 运行一段时间，在 WebUI 的「自动判断」页查看每条消息的各项概率和最终决定，确认没问题后再关闭影子模式。也可以先用 `pnpm tsx test/jev-probe.ts`（需要设置 `TYPESAFE_API_KEY`）查看 Jev 对几条示例消息的判断。
+
+> 自动模式会把白名单群中的消息发送给 TypeSafe 进行判断，请在启用前告知群成员。
 
 ## 使用 `chatsalt` 命令
 

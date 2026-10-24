@@ -32,7 +32,8 @@ interface ConversationRecord {
   messageSeq: number;
   input: string;
   output: string;
-  outcome: 'replied' | 'rejected';
+  outcome: 'replied' | 'rejected' | 'skipped' | 'shadow';
+  autoReason?: string;
   durationMs: number;
   toolCallCount: number;
   toolDurationMs: number;
@@ -46,7 +47,7 @@ interface ConversationRecord {
 interface WarningRecord {
   id: number;
   createdAt: number;
-  kind: 'generation' | 'rejected' | 'tool';
+  kind: 'generation' | 'rejected' | 'tool' | 'auto';
   message: string;
   detail?: string;
   scene?: Scene;
@@ -65,12 +66,47 @@ interface MemoryRecord {
   created_at: number;
 }
 
+interface AutoDecisionRecord {
+  id: number;
+  createdAt: number;
+  groupId: number;
+  senderId: number;
+  senderName: string;
+  messageSeq: number;
+  input: string;
+  verdict: 'reply' | 'silent' | 'mute' | 'error';
+  reason: string;
+  outcome: 'pending' | 'selected' | 'superseded' | 'budget' | 'busy' | 'muted' | 'direct' | 'ignored';
+  answers?: Record<string, number | string>;
+  model?: string;
+  inputTokens?: number;
+  latencyMs: number;
+  error?: string;
+}
+
+interface AutoData {
+  enabled: boolean;
+  shadow: boolean;
+  decisions: AutoDecisionRecord[];
+}
+
 interface DashboardData {
   conversations: ConversationRecord[];
   warnings: WarningRecord[];
   memories: MemoryRecord[];
   memoryEnabled: boolean;
+  auto: AutoData;
 }
+
+const autoReasonLabel: Record<string, string> = {
+  implicit_address: '被叫到',
+  continuation: '接话',
+  in_domain_question: '主动插话',
+  sensitive: '敏感话题',
+  mute: '被嫌烦',
+  none: '无',
+  error: '出错',
+};
 
 const apiBase = '/webui/chatsalt/api/';
 
@@ -153,9 +189,22 @@ function Conversations({ records }: { records: ConversationRecord[] }) {
               <p className="mt-2 truncate text-sm text-muted-foreground">{record.input}</p>
             </div>
             <div className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+              {record.autoReason ? (
+                <Badge variant="secondary" className="rounded-md">
+                  {autoReasonLabel[record.autoReason] ?? record.autoReason}
+                </Badge>
+              ) : null}
               {record.outcome === 'rejected' ? (
                 <Badge variant="destructive" className="rounded-md">
                   已拒绝
+                </Badge>
+              ) : record.outcome === 'skipped' ? (
+                <Badge variant="outline" className="rounded-md">
+                  放弃发言
+                </Badge>
+              ) : record.outcome === 'shadow' ? (
+                <Badge variant="outline" className="rounded-md">
+                  影子模式
                 </Badge>
               ) : (
                 <CheckIcon className="size-3.5" aria-label="已回复" />
@@ -231,7 +280,7 @@ function Warnings({ records }: { records: WarningRecord[] }) {
   if (records.length === 0) {
     return <EmptyState icon={AlertTriangleIcon} title="暂无警告记录" />;
   }
-  const kindLabel = { generation: '处理失败', rejected: '模型拒绝', tool: '工具错误' } as const;
+  const kindLabel = { generation: '处理失败', rejected: '模型拒绝', tool: '工具错误', auto: '自动模式' } as const;
   return (
     <div className="divide-y border-y">
       {records.map((record) => (
@@ -325,6 +374,83 @@ function Memories({ records, enabled }: { records: MemoryRecord[]; enabled: bool
   );
 }
 
+const verdictLabel = { reply: '回复', silent: '沉默', mute: '静音', error: '出错' } as const;
+const outcomeLabel = {
+  pending: '等待中',
+  selected: '已采用',
+  superseded: '被同批覆盖',
+  budget: '超出配额',
+  busy: '正忙',
+  muted: '静音中',
+  direct: '已被直接触发',
+  ignored: '—',
+} as const;
+
+function AutoDecisions({ data }: { data: AutoData }) {
+  const [onlyReply, setOnlyReply] = useState(false);
+  if (!data.enabled) {
+    return <EmptyState icon={BotIcon} title="自动模式未启用" />;
+  }
+  const records = onlyReply ? data.decisions.filter((r) => r.verdict !== 'silent') : data.decisions;
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+        <span>{data.shadow ? '影子模式：判断与生成照常进行，但不发送消息' : '自动模式运行中'}</span>
+        <label className="flex items-center gap-2">
+          <input type="checkbox" checked={onlyReply} onChange={(e) => setOnlyReply(e.target.checked)} />
+          仅显示非沉默
+        </label>
+      </div>
+      {records.length === 0 ? (
+        <EmptyState icon={BotIcon} title="暂无判断记录" />
+      ) : (
+        <div className="divide-y border-y">
+          {records.map((record) => (
+            <article key={record.id} className="grid gap-2 py-3 md:grid-cols-[9rem_minmax(0,1fr)_11rem]">
+              <div className="text-xs text-muted-foreground">
+                <time dateTime={new Date(record.createdAt).toISOString()}>{formatTime(record.createdAt)}</time>
+                <p>群 {record.groupId}</p>
+                <p className="truncate">{record.senderName || record.senderId}</p>
+              </div>
+              <div className="min-w-0">
+                <p className="whitespace-pre-wrap break-words text-sm leading-6">{record.input}</p>
+                {record.answers ? (
+                  <p className="mt-1 font-mono text-xs leading-5 text-muted-foreground">
+                    {Object.entries(record.answers)
+                      .map(([key, value]) => `${key}=${value}`)
+                      .join('  ')}
+                  </p>
+                ) : null}
+                {record.error ? <p className="mt-1 font-mono text-xs text-destructive">{record.error}</p> : null}
+              </div>
+              <div className="flex flex-wrap items-start gap-1.5 md:justify-end">
+                <Badge
+                  variant={
+                    record.verdict === 'reply' ? 'default' : record.verdict === 'silent' ? 'outline' : 'destructive'
+                  }
+                  className="rounded-md"
+                >
+                  {verdictLabel[record.verdict]}
+                  {record.reason !== 'none' ? ` · ${autoReasonLabel[record.reason] ?? record.reason}` : ''}
+                </Badge>
+                {record.outcome !== 'ignored' ? (
+                  <Badge variant="secondary" className="rounded-md">
+                    {outcomeLabel[record.outcome]}
+                  </Badge>
+                ) : null}
+                <span className="w-full font-mono text-xs text-muted-foreground md:text-right">
+                  {formatDuration(record.latencyMs)}
+                  {record.inputTokens ? ` · ${record.inputTokens} tok` : ''}
+                </span>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function App() {
   const [data, setData] = useState<DashboardData>();
   const [error, setError] = useState<string>();
@@ -334,16 +460,18 @@ export function App() {
   const refresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      const [activityResponse, memoriesResponse] = await Promise.all([
+      const [activityResponse, memoriesResponse, autoResponse] = await Promise.all([
         fetch(`${apiBase}activity`, { credentials: 'same-origin' }),
         fetch(`${apiBase}memories`, { credentials: 'same-origin' }),
+        fetch(`${apiBase}auto`, { credentials: 'same-origin' }),
       ]);
-      if (!activityResponse.ok || !memoriesResponse.ok) {
+      if (!activityResponse.ok || !memoriesResponse.ok || !autoResponse.ok) {
         throw new Error('request failed');
       }
       const activity = (await activityResponse.json()) as Pick<DashboardData, 'conversations' | 'warnings'>;
       const memories = (await memoriesResponse.json()) as { enabled: boolean; memories: MemoryRecord[] };
-      setData({ ...activity, memories: memories.memories, memoryEnabled: memories.enabled });
+      const auto = (await autoResponse.json()) as AutoData;
+      setData({ ...activity, memories: memories.memories, memoryEnabled: memories.enabled, auto });
       setUpdatedAt(Date.now());
       setError(undefined);
     } catch {
@@ -406,6 +534,10 @@ export function App() {
               警告
               <span className="text-xs tabular-nums text-muted-foreground">{data?.warnings.length ?? 0}</span>
             </TabsTrigger>
+            <TabsTrigger value="auto" className="flex-none rounded-none px-0">
+              自动判断
+              <span className="text-xs tabular-nums text-muted-foreground">{data?.auto.decisions.length ?? 0}</span>
+            </TabsTrigger>
             <TabsTrigger value="memories" className="flex-none rounded-none px-0">
               记忆
               <span className="text-xs tabular-nums text-muted-foreground">{data?.memories.length ?? 0}</span>
@@ -416,6 +548,7 @@ export function App() {
             {data ? <Conversations records={data.conversations} /> : <LoadingState />}
           </TabsContent>
           <TabsContent value="warnings">{data ? <Warnings records={data.warnings} /> : <LoadingState />}</TabsContent>
+          <TabsContent value="auto">{data ? <AutoDecisions data={data.auto} /> : <LoadingState />}</TabsContent>
           <TabsContent value="memories">
             {data ? <Memories records={data.memories} enabled={data.memoryEnabled} /> : <LoadingState />}
           </TabsContent>
