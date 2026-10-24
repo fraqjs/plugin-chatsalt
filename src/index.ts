@@ -7,8 +7,15 @@ import { createGithubTools as githubTools } from '@github-tools/sdk';
 import pkg from '../package.json';
 import { ActivityRegistry, summarizeMessage } from './activity';
 import { DEFAULT_JEV_BASE_URL, JevClient } from './auto/jev';
-import { defaultThresholds, type ReplyReason, type Thresholds } from './auto/judge';
-import { AutoScheduler } from './auto/scheduler';
+import {
+  defaultInterjectRules,
+  defaultThresholds,
+  INTENTS,
+  type IntentHints,
+  type InterjectRules,
+  type Thresholds,
+} from './auto/judge';
+import { type AutoReply, AutoScheduler } from './auto/scheduler';
 import { cacheBreakpoint, cacheLatestStepMessage } from './cache';
 import { MemoryStore } from './memory';
 import { buildPromptMessage, buildSystemPrompt, extractSenderName } from './prompt';
@@ -87,9 +94,13 @@ export interface ChatsaltPluginOptions {
     stateMessages?: number;
     debounceMs?: number;
     maxBurstWaitMs?: number;
+    interject?: InterjectRules;
+    intentHints?: IntentHints;
+    interjectWithin?: number;
     budget?: {
       perHour?: number;
       minIntervalMs?: number;
+      perUserIntervalMs?: number;
     };
     muteOnComplaintMs?: number;
     thresholds?: Partial<Thresholds>;
@@ -248,6 +259,38 @@ export const ChatsaltPlugin = definePlugin({
         throw new Error('auto.groups must list at least one group when auto mode is enabled.');
       }
       autoExpertise = auto.expertise.trim();
+      const interject = auto.interject ?? defaultInterjectRules;
+      const isProbability = (n: unknown) => typeof n === 'number' && n >= 0 && n <= 1;
+      for (const [intent, rule] of Object.entries(interject)) {
+        if (!(INTENTS as readonly string[]).includes(intent)) {
+          throw new Error(`Unknown intent "${intent}" in auto.interject; expected one of ${INTENTS.join(', ')}.`);
+        }
+        const valid =
+          isProbability(rule) ||
+          (typeof rule === 'object' &&
+            rule !== null &&
+            isProbability(rule.probability) &&
+            (rule.topicFit === undefined ||
+              (typeof rule.topicFit === 'number' && rule.topicFit >= 0 && rule.topicFit <= 3)));
+        if (!valid) {
+          throw new Error(
+            `auto.interject.${intent} must be a probability between 0 and 1, or { probability, topicFit? } with topicFit between 0 and 3.`,
+          );
+        }
+      }
+      const intentHints = auto.intentHints ?? {};
+      for (const [intent, hints] of Object.entries(intentHints)) {
+        if (!(INTENTS as readonly string[]).includes(intent)) {
+          throw new Error(`Unknown intent "${intent}" in auto.intentHints; expected one of ${INTENTS.join(', ')}.`);
+        }
+        if (!Array.isArray(hints) || hints.some((h) => typeof h !== 'string')) {
+          throw new Error(`auto.intentHints.${intent} must be a list of strings.`);
+        }
+      }
+      const interjectWithin = auto.interjectWithin ?? 3;
+      if (!Number.isInteger(interjectWithin) || interjectWithin < 1) {
+        throw new Error('auto.interjectWithin must be a positive integer.');
+      }
       const jev = new JevClient({
         apiKey: auto.jev.apiKey,
         model: auto.jev.model ?? 'jev-1.14.0',
@@ -259,7 +302,7 @@ export const ChatsaltPlugin = definePlugin({
         jev,
         activity,
         ctx.logger,
-        (selfId, message, reason) => runChat(selfId, message, reason),
+        (selfId, message, reply) => runChat(selfId, message, reply),
         (delayMs, callback) => ctx.timeout(delayMs, callback),
         {
           groups: new Set(auto.groups),
@@ -269,11 +312,15 @@ export const ChatsaltPlugin = definePlugin({
             avoidTopics: auto.avoidTopics ?? ['politics', 'history', 'romance or sexual content'],
           },
           thresholds: { ...defaultThresholds, ...auto.thresholds },
+          interject,
+          intentHints,
+          interjectWithin,
           stateMessages: auto.stateMessages ?? 8,
           debounceMs: auto.debounceMs ?? 3_000,
           maxBurstWaitMs: auto.maxBurstWaitMs ?? 10_000,
           perHour: auto.budget?.perHour ?? 3,
           minIntervalMs: auto.budget?.minIntervalMs ?? 10 * 60_000,
+          perUserIntervalMs: auto.budget?.perUserIntervalMs ?? 30 * 60_000,
           muteOnComplaintMs: auto.muteOnComplaintMs ?? 6 * 3_600_000,
         },
       );
@@ -363,15 +410,15 @@ export const ChatsaltPlugin = definePlugin({
     });
 
     /**
-     * Generates and sends a reply to `data`. With `autoReason`, auto mode decided to speak: no reactions are
+     * Generates and sends a reply to `data`. With `autoReply`, auto mode decided to speak: no reactions are
      * shown, `no_reply` always suppresses the reply, and shadow mode records the reply without sending it.
      */
     async function runChat(
       self_id: number,
       data: milky.IncomingFriendMessage | milky.IncomingGroupMessage,
-      autoReason?: ReplyReason,
+      autoReply?: AutoReply,
     ): Promise<void> {
-      const isAuto = autoReason !== undefined;
+      const isAuto = autoReply !== undefined;
       const startedAt = performance.now();
       let toolCallCount = 0;
       let toolDurationMs = 0;
@@ -412,7 +459,12 @@ export const ChatsaltPlugin = definePlugin({
         senderName,
         messageSeq: data.message_seq,
       };
-      const conversationContext = { ...recordContext, input: summarizeMessage(data), autoReason };
+      const conversationContext = {
+        ...recordContext,
+        input: summarizeMessage(data),
+        autoReason: autoReply?.reason,
+        autoIntent: autoReply?.intent,
+      };
       const getActivityMetrics = () => ({
         durationMs: performance.now() - startedAt,
         toolCallCount,
@@ -428,11 +480,15 @@ export const ChatsaltPlugin = definePlugin({
             reaction: String(face_PressButton),
           }); // this react does not catch, to test message ability
         }
-        const history = await fetchAnchoredHistory(ctx, data, contextWindow, contextStep);
-        // The history normally ends with the triggering message; append it if storage has not caught up.
+        // An auto-mode target may be slightly older than the newest message; the model should see what
+        // followed it, such as someone having answered already.
+        const endSeq = Math.max(autoReply?.latestSeq ?? data.message_seq, data.message_seq);
+        const history = await fetchAnchoredHistory(ctx, { ...data, message_seq: endSeq }, contextWindow, contextStep);
+        // The history normally contains the triggering message; add it if storage has not caught up.
         const threadMessages = history.some((message) => message.message_seq === data.message_seq)
           ? history
-          : [...history, data];
+          : [...history, data].sort((a, b) => a.message_seq - b.message_seq);
+        const targetIsLatest = threadMessages.at(-1)?.message_seq === data.message_seq;
         const thread: ThreadResources = { resources: {}, files: {}, forwards: {} };
         const threadXml: string[] = [];
         for (const message of threadMessages) {
@@ -497,9 +553,17 @@ export const ChatsaltPlugin = definePlugin({
               senderId: data.sender_id,
               senderName,
               messageSeq: data.message_seq,
+              targetIsLatest,
               thread: threadXml,
               memories: await memoryStore?.recall(memoryScope),
-              auto: autoReason ? { reason: autoReason, expertise: autoExpertise } : undefined,
+              auto: autoReply
+                ? {
+                    reason: autoReply.reason,
+                    intent: autoReply.intent,
+                    intentEnabled: autoReply.intentEnabled,
+                    expertise: autoExpertise,
+                  }
+                : undefined,
             }),
           ],
           tools: tools,

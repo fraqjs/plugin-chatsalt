@@ -3,6 +3,8 @@
  * to sanity-check questions and thresholds before turning auto mode on.
  *
  *   TYPESAFE_API_KEY=... [TYPESAFE_BASE_URL=https://.../v1] pnpm tsx test/jev-probe.ts
+ *
+ * Set PROBE_NO_HINTS=1 to compare against the domain-neutral criteria alone.
  */
 import 'dotenv/config';
 
@@ -13,7 +15,9 @@ import {
   buildJevQuestions,
   buildJevState,
   decide,
+  defaultInterjectRules,
   defaultThresholds,
+  type IntentHints,
   type JudgeProfile,
   parseJevAnswers,
   summarizeAnswers,
@@ -38,6 +42,14 @@ const profile: JudgeProfile = {
   avoidTopics: ['politics', 'history', 'romance or sexual content'],
 };
 
+/** Rhythm game slang Jev would not otherwise recognize; the built-in criteria stay domain-neutral. */
+const intentHints: IntentHints = {
+  share_success: ['我把 xx 收了', '鸟了', '鸟加了', 'AP 了', 'FC 了', 'rating 推到 15000 了', '终于出了'],
+  share_setback: ['又寄了', '这谱根本打不过', '手好酸'],
+  question: ['这谱怎么打', '定数多少'],
+};
+const withHints = process.env.PROBE_NO_HINTS !== '1';
+
 let seq = 0;
 const m = (speaker: string, text: string, quotes: string | null = null): BufferedMessage => ({
   seq: ++seq,
@@ -52,9 +64,19 @@ const m = (speaker: string, text: string, quotes: string | null = null): Buffere
 const samples: Array<{ expect: string; context: BufferedMessage[]; target: BufferedMessage }> = [
   { expect: 'silent', context: [m('阿光', '今天好热'), m('小林', '是啊')], target: m('阿光', '晚上吃啥') },
   {
-    expect: 'reply · in_domain_question',
+    expect: 'reply · interjection (question)',
     context: [m('阿光', '今天出勤了'), m('小林', '推分了吗')],
     target: m('阿光', '有没有人知道 PANDORA PARADOXXX 紫谱定数多少'),
+  },
+  {
+    expect: 'reply · interjection (share_success)',
+    context: [m('阿光', '今天出勤人好多'), m('小林', '排了半小时')],
+    target: m('阿光', '我今天把Xaleid scopiX收了'),
+  },
+  {
+    expect: 'silent (share_setback)',
+    context: [m('阿光', '今天出勤了')],
+    target: m('阿光', '这谱根本打不过，手好酸'),
   },
   {
     expect: 'silent (meme)',
@@ -89,11 +111,17 @@ for (const { expect, context, target } of samples) {
     botSpokeRecently: context.some((x) => x.fromBot),
   };
   const startedAt = performance.now();
-  const response = await jev.systemOne(buildJevState(profile, context, target, flags), buildJevQuestions(flags));
+  const response = await jev.systemOne(
+    buildJevState(profile, context, target, flags),
+    buildJevQuestions(flags, withHints ? intentHints : {}),
+  );
   const answers = parseJevAnswers(response);
-  const verdict = decide(answers, flags, defaultThresholds);
+  const verdict = decide(answers, flags, defaultThresholds, defaultInterjectRules);
   console.log(`\n${target.speaker}: ${target.text}`);
   console.log(`  expect  ${expect}`);
-  console.log(`  verdict ${verdict.action} · ${verdict.reason}  (${Math.round(performance.now() - startedAt)} ms)`);
+  const intent = verdict.action === 'reply' ? ` (${verdict.intent})` : '';
+  console.log(
+    `  verdict ${verdict.action} · ${verdict.reason}${intent}  (${Math.round(performance.now() - startedAt)} ms)`,
+  );
   console.log(`  ${JSON.stringify(summarizeAnswers(answers))}`);
 }

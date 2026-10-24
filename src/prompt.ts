@@ -37,7 +37,7 @@ export function buildSystemPrompt(options: SystemPromptOptions): string {
 <message> 包含一个 <content> 元素，其中包含当前消息的内容。
 此外还有 <friend>、<group> 和 <group_member> 元素，分别包含当前聊天的好友、群聊和群成员信息。
 <group_member> 会同时包含 <card> 和 <nickname> 元素，分别表示群名片和昵称。如果二者同时存在，则以群名片（card）为准确定称呼。
-你需要回复的消息是 <thread> 中的最后一条，上下文之后的「场景」部分会给出它的 seq。
+你需要回复的消息由上下文之后的「场景」部分的 seq 指定，通常是 <thread> 中的最后一条。
 
 认人永远以 **QQ 号**为准，昵称只作参考。
 如果引用历史消息，请先根据 seq 和 sender_id 确认是谁说的，避免把别人的话安到另一个人身上。
@@ -171,42 +171,88 @@ export interface PromptMessageOptions {
   peerId: number;
   senderId: number;
   senderName: string;
-  /** Seq of the message being replied to, which is the last entry of `thread`. */
+  /** Seq of the message being replied to; the last entry of `thread` unless `targetIsLatest` is false. */
   messageSeq: number;
+  /** Whether the replied message is the newest of `thread`; auto mode may reply to a slightly older one. */
+  targetIsLatest?: boolean;
   /** Serialized `<message>` elements in seq order, rendered with `inThread`. */
   thread: string[];
   memories?: MemoryEntry[];
   /** Set when auto mode, not a mention or keyword, decided to speak. */
   auto?: {
-    reason: 'implicit_address' | 'continuation' | 'in_domain_question';
+    reason: 'implicit_address' | 'continuation' | 'interjection';
+    intent: 'chatter' | 'share_setback' | 'share_success' | 'discussion' | 'question';
+    /** Whether the operator enabled `intent` for interjections, i.e. wants the bot to respond to it. */
+    intentEnabled: boolean;
     expertise: string;
   };
 }
 
-function buildAutoSection(auto: NonNullable<PromptMessageOptions['auto']>): string {
-  const common = `
-- 如果你要回答的问题在 <thread> 中已经有人回答了，或者话题已经过去了，直接输出 no_reply。
-- 一到两句话。不要开场白，不要复述或总结群友说过的话。
-- 输出 no_reply 不会发送任何消息，也不会被任何人察觉。
-  `.trim();
-  if (auto.reason === 'in_domain_question') {
-    return `
-这次没有人叫你，是你自己决定开口的：群里有人在问你擅长领域内的问题。
-你擅长的领域是：${auto.expertise}
+type AutoPromptOptions = NonNullable<PromptMessageOptions['auto']>;
+type AutoIntent = AutoPromptOptions['intent'];
 
-- 只有在你能给出具体、确定的信息（名称、数字、做法）时才说话。拿不准、需要猜，或者只能说「好厉害」「确实」之类附和的话，直接输出 no_reply。
-- 只聊和你擅长领域有关的内容，不要顺着话题延伸到别的领域。
-${common}
-    `.trim();
+/**
+ * How to respond to an interjection target, by what Jev judged the message to be for. `open` applies to
+ * intents the operator enabled, so it tells the model how to respond well rather than whether to; it
+ * must not talk the model out of what the configuration asked for. `cautious` applies when the message
+ * only got through on another intent's rule.
+ */
+const INTENT_GUIDES: Record<'open' | 'cautious', Record<AutoIntent, string>> = {
+  open: {
+    question:
+      '这条消息是在提问。如果你知道确切的答案（名称、数字、做法），直接简短地回答；拿不准或需要猜就放弃。如果 <thread> 里已经有人答对了，也放弃。',
+    share_success:
+      '这条消息是对方在分享自己的成就、进展或好运，你可以像群友一样简短地祝贺。如果你确切了解这件事（难在哪里、有什么意义），可以自然地带上一点；不了解就只祝贺，不要编造细节。',
+    share_setback:
+      '这条消息是对方在分享自己的失败、倒霉或烦恼，你可以像群友一样简短地安慰或打气。除非你有确切、具体的建议，否则不要指点对方该怎么做。',
+    discussion:
+      '这条消息是在分享信息或发表看法，你可以加入讨论：说出你自己的看法，或补充你确切知道的信息。不要单纯附和，也不要和人争论。',
+    chatter:
+      '这条消息是闲聊，你可以像普通群友一样自然地接一句：用你自己的语气，回应对方说的内容本身。不要为了延续话题而反问，不要把话题引到你擅长的领域。',
+  },
+  cautious: {
+    question:
+      '这条消息是在提问。只有能给出具体、确定的答案（名称、数字、做法）时才回答；拿不准或需要猜就放弃。如果 <thread> 里已经有人答对了，也放弃。',
+    share_success:
+      '这条消息是对方在分享自己的成就、进展或好运，通常不需要你回应。只有在你确切了解这件事、能说出具体的点时才祝贺，否则放弃。',
+    share_setback:
+      '这条消息是对方在分享自己的失败、倒霉或烦恼，通常不需要你回应。除非能自然地安慰一句，否则放弃；不要指点对方该怎么做。',
+    discussion:
+      '这条消息是在分享信息或发表看法。只有在你能补充确切、具体的信息或观点时才加入；只能说「好耶」「确实」之类附和的话就放弃，也不要和人争论。',
+    chatter: '这条消息只是闲聊，并不需要你回应。除非你能非常自然地接上一句，否则放弃。',
+  },
+};
+
+/** Intents whose replies rest on knowledge, which must stay within the bot's expertise. */
+const KNOWLEDGE_INTENTS: ReadonlySet<AutoIntent> = new Set(['question', 'discussion']);
+
+function buildAutoSection(auto: AutoPromptOptions): string {
+  const rules: string[] = [];
+  if (auto.reason === 'interjection') {
+    rules.push(
+      '这次没有人叫你，是你自己决定开口的。',
+      `你擅长的领域是：${auto.expertise}`,
+      '',
+      `- ${INTENT_GUIDES[auto.intentEnabled ? 'open' : 'cautious'][auto.intent]}`,
+    );
+    if (KNOWLEDGE_INTENTS.has(auto.intent)) {
+      rules.push('- 只聊和你擅长领域有关的内容，不要顺着话题延伸到别的领域。');
+    }
+  } else {
+    rules.push(
+      auto.reason === 'implicit_address'
+        ? '对方没有 @ 你，但看起来是在叫你或问你。'
+        : '对方没有引用你的消息，但看起来是在接你刚才说的话。',
+      '',
+      '- 如果仔细看完上下文后发现对方其实不是在跟你说话，放弃。',
+    );
   }
-  const why =
-    auto.reason === 'implicit_address'
-      ? '对方没有 @ 你，但看起来是在叫你或问你。'
-      : '对方没有引用你的消息，但看起来是在接你刚才说的话。';
-  return `
-${why}如果仔细看完上下文后发现对方其实不是在跟你说话，直接输出 no_reply。
-${common}
-  `.trim();
+  rules.push(
+    '- 不要编造你不确定的事实，例如具体的数字、难度、版本或活动信息。',
+    '- 一到两句话。不要开场白，不要复述或总结群友说过的话。别人已经说了你想说的，或者话题已经过去了，就放弃。',
+    '- 放弃时输出 no_reply，并在括号里写明简短理由，例如 no_reply (只能附和) 或 no_reply (已经有人回答了)。这不会发送任何消息，也不会被任何人察觉。',
+  );
+  return rules.join('\n');
 }
 
 /**
@@ -245,7 +291,11 @@ id 仅用于 forget，回复中不要出现 id。
 你的 QQ 号是 ${options.selfId}。
 当前的会话场景是 ${options.scene === 'friend' ? '好友' : '群聊'}。
 当前说话人为“${options.senderName}”，QQ 号为 ${options.senderId}。
-你需要回复的是 <thread> 中的最后一条消息，seq 为 ${options.messageSeq}。
+${
+  options.targetIsLatest === false
+    ? `你需要回复的是 seq 为 ${options.messageSeq} 的消息。它之后群里又有了新消息，回复前请看完。`
+    : `你需要回复的是 <thread> 中的最后一条消息，seq 为 ${options.messageSeq}。`
+}
     `.trim(),
   );
   if (options.auto) {

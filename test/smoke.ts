@@ -57,6 +57,11 @@ ctx.install(ChatsaltPlugin, {
           names: ['纱露朵', '盐', 'salt', 'bot', '机器人'],
           expertise:
             'maimai DX (舞萌) rhythm game: charts, difficulty constants, rating, song unlocks, play technique.',
+          intentHints: {
+            share_success: ['我把 xx 收了', '鸟了', '鸟加了', 'AP 了', 'FC 了', 'rating 推到 15000 了', '终于出了'],
+            share_setback: ['又寄了', '这谱根本打不过', '手好酸'],
+            question: ['这谱怎么打', '定数多少'],
+          },
         },
       }
     : {}),

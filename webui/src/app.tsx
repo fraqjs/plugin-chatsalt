@@ -34,6 +34,7 @@ interface ConversationRecord {
   output: string;
   outcome: 'replied' | 'rejected' | 'skipped' | 'shadow';
   autoReason?: string;
+  autoIntent?: string;
   durationMs: number;
   toolCallCount: number;
   toolDurationMs: number;
@@ -101,11 +102,19 @@ interface DashboardData {
 const autoReasonLabel: Record<string, string> = {
   implicit_address: '被叫到',
   continuation: '接话',
-  in_domain_question: '主动插话',
+  interjection: '主动插话',
   sensitive: '敏感话题',
   mute: '被嫌烦',
   none: '无',
   error: '出错',
+};
+
+const intentLabel: Record<string, string> = {
+  chatter: '闲聊',
+  share_setback: '诉苦',
+  share_success: '报喜',
+  discussion: '讨论',
+  question: '提问',
 };
 
 const apiBase = '/webui/chatsalt/api/';
@@ -192,6 +201,7 @@ function Conversations({ records }: { records: ConversationRecord[] }) {
               {record.autoReason ? (
                 <Badge variant="secondary" className="rounded-md">
                   {autoReasonLabel[record.autoReason] ?? record.autoReason}
+                  {record.autoIntent ? ` · ${intentLabel[record.autoIntent] ?? record.autoIntent}` : ''}
                 </Badge>
               ) : null}
               {record.outcome === 'rejected' ? (

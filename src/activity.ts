@@ -51,6 +51,8 @@ export interface ConversationRecord {
   outcome: ConversationOutcome;
   /** Set for auto-mode conversations: why the bot decided to speak. */
   autoReason?: string;
+  /** Set for auto-mode conversations: what Jev judged the message to be for. */
+  autoIntent?: string;
   durationMs: number;
   toolCallCount: number;
   toolDurationMs: number;

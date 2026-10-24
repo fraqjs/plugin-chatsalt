@@ -9,6 +9,9 @@ import {
   buildJevQuestions,
   buildJevState,
   decide,
+  type Intent,
+  type IntentHints,
+  type InterjectRules,
   type JudgeFlags,
   type JudgeProfile,
   parseJevAnswers,
@@ -22,21 +25,36 @@ export interface AutoSchedulerOptions {
   groups: Set<number>;
   profile: JudgeProfile;
   thresholds: Thresholds;
+  interject: InterjectRules;
+  intentHints: IntentHints;
+  /** An interjection target must be among this many latest messages when the burst settles. */
+  interjectWithin: number;
   stateMessages: number;
   debounceMs: number;
   maxBurstWaitMs: number;
-  /** Max `in_domain_question` interjections per group within any rolling hour. */
+  /** Max interjections per group within any rolling hour. */
   perHour: number;
-  /** Min gap between two `in_domain_question` interjections in a group. */
+  /** Min gap between two interjections in a group. */
   minIntervalMs: number;
+  /** Min gap between two interjections on the same member's messages. */
+  perUserIntervalMs: number;
   muteOnComplaintMs: number;
 }
 
-/** Generates and sends (or, in shadow mode, only generates) an auto-mode reply. */
 /** Context-managed timer, cleared automatically when the plugin stops. */
 export type TimerFactory = (delayMs: number, callback: () => void) => NodeJS.Timeout;
 
-export type AutoRunner = (selfId: number, message: milky.IncomingGroupMessage, reason: ReplyReason) => Promise<void>;
+export interface AutoReply {
+  reason: ReplyReason;
+  intent: Intent;
+  /** Whether the operator enabled `intent` in the interject rules, which sets how readily the bot responds. */
+  intentEnabled: boolean;
+  /** Seq of the newest message in the group when the burst settled; the target may precede it. */
+  latestSeq: number;
+}
+
+/** Generates and sends (or, in shadow mode, only generates) an auto-mode reply. */
+export type AutoRunner = (selfId: number, message: milky.IncomingGroupMessage, reply: AutoReply) => Promise<void>;
 
 interface Judgment {
   message: milky.IncomingGroupMessage;
@@ -53,9 +71,10 @@ interface GroupState {
   busy: boolean;
   mutedUntil: number;
   interjections: number[];
+  lastInterjectionByUser: Map<number, number>;
 }
 
-const REPLY_PRIORITY: ReplyReason[] = ['implicit_address', 'continuation', 'in_domain_question'];
+const REPLY_PRIORITY: ReplyReason[] = ['implicit_address', 'continuation', 'interjection'];
 
 function hasJudgeableText(text: string): boolean {
   // Placeholders like [图片] and @mentions carry nothing Jev can judge on their own.
@@ -89,7 +108,15 @@ export class AutoScheduler {
   private state(groupId: number): GroupState {
     let state = this.groups.get(groupId);
     if (!state) {
-      state = { buffer: [], burst: [], burstSelfId: 0, busy: false, mutedUntil: 0, interjections: [] };
+      state = {
+        buffer: [],
+        burst: [],
+        burstSelfId: 0,
+        busy: false,
+        mutedUntil: 0,
+        interjections: [],
+        lastInterjectionByUser: new Map(),
+      };
       this.groups.set(groupId, state);
     }
     return state;
@@ -209,10 +236,10 @@ export class AutoScheduler {
     try {
       const response = await this.jev.systemOne(
         buildJevState(this.options.profile, context, target, flags),
-        buildJevQuestions(flags),
+        buildJevQuestions(flags, this.options.intentHints),
       );
       const answers = parseJevAnswers(response);
-      const verdict = decide(answers, flags, this.options.thresholds);
+      const verdict = decide(answers, flags, this.options.thresholds, this.options.interject);
       const record = this.activity.recordAutoDecision({
         ...base,
         verdict: verdict.action,
@@ -301,13 +328,13 @@ export class AutoScheduler {
       finish('ignored');
       return;
     }
-    const { judgment, reason } = chosen;
+    const { judgment, reason, intent, intentEnabled } = chosen;
     if (state.busy || Date.now() < state.mutedUntil) {
       judgment.record.outcome = state.busy ? 'busy' : 'muted';
       finish('superseded', judgment);
       return;
     }
-    if (reason === 'in_domain_question' && !this.takeBudget(state)) {
+    if (reason === 'interjection' && !this.takeBudget(state, judgment.message.sender_id)) {
       judgment.record.outcome = 'budget';
       finish('superseded', judgment);
       return;
@@ -317,7 +344,13 @@ export class AutoScheduler {
 
     state.busy = true;
     try {
-      await this.run(selfId, judgment.message, reason);
+      const latestSeq = state.buffer.at(-1)?.seq ?? judgment.message.message_seq;
+      await this.run(selfId, judgment.message, {
+        reason,
+        intent,
+        intentEnabled,
+        latestSeq: Math.max(latestSeq, judgment.message.message_seq),
+      });
     } catch (error) {
       this.logger.error('自动模式对话处理失败', error);
     } finally {
@@ -325,34 +358,43 @@ export class AutoScheduler {
     }
   }
 
-  private choose(state: GroupState, judgments: Judgment[]): { judgment: Judgment; reason: ReplyReason } | undefined {
-    const latestHumanSeq = state.buffer.findLast((m) => !m.fromBot)?.seq;
+  private choose(
+    state: GroupState,
+    judgments: Judgment[],
+  ): { judgment: Judgment; reason: ReplyReason; intent: Intent; intentEnabled: boolean } | undefined {
+    // Interjecting on a message the chat has long moved past reads as a delayed reaction.
+    const recentSeqs = new Set(state.buffer.slice(-this.options.interjectWithin).map((m) => m.seq));
     for (const reason of REPLY_PRIORITY) {
-      const candidates = judgments.filter((j) => j.verdict?.action === 'reply' && j.verdict.reason === reason);
-      const latest = candidates.at(-1);
-      if (!latest) {
-        continue;
+      const latest = judgments.findLast(
+        (j) =>
+          j.verdict?.action === 'reply' &&
+          j.verdict.reason === reason &&
+          (reason !== 'interjection' || recentSeqs.has(j.message.message_seq)),
+      );
+      if (latest?.verdict?.action === 'reply') {
+        const { intent, intentEnabled } = latest.verdict;
+        return { judgment: latest, reason, intent, intentEnabled };
       }
-      // Only interject on the newest message: an older question has likely been answered or dropped.
-      if (reason === 'in_domain_question' && latest.message.message_seq !== latestHumanSeq) {
-        continue;
-      }
-      return { judgment: latest, reason };
     }
     return undefined;
   }
 
-  private takeBudget(state: GroupState): boolean {
+  private takeBudget(state: GroupState, senderId: number): boolean {
     const now = Date.now();
     state.interjections = state.interjections.filter((t) => now - t < 3_600_000);
     const last = state.interjections.at(-1);
+    const lastForUser = state.lastInterjectionByUser.get(senderId);
     if (state.interjections.length >= this.options.perHour) {
       return false;
     }
     if (last !== undefined && now - last < this.options.minIntervalMs) {
       return false;
     }
+    if (lastForUser !== undefined && now - lastForUser < this.options.perUserIntervalMs) {
+      return false;
+    }
     state.interjections.push(now);
+    state.lastInterjectionByUser.set(senderId, now);
     return true;
   }
 
