@@ -252,6 +252,9 @@ export const ChatsaltPlugin = definePlugin({
       if (!auto.jev?.apiKey) {
         throw new Error('auto.jev.apiKey is required when auto mode is enabled.');
       }
+      if (!auto.jev?.model) {
+        throw new Error('auto.jev.model is required when auto mode is enabled.');
+      }
       if (!auto.expertise?.trim()) {
         throw new Error('auto.expertise is required when auto mode is enabled.');
       }
@@ -293,7 +296,7 @@ export const ChatsaltPlugin = definePlugin({
       }
       const jev = new JevClient({
         apiKey: auto.jev.apiKey,
-        model: auto.jev.model ?? 'jev-1.14.0',
+        model: auto.jev.model,
         baseURL: auto.jev.baseURL ?? DEFAULT_JEV_BASE_URL,
         timeoutMs: auto.jev.timeoutMs ?? 5_000,
         maxRetries: auto.jev.maxRetries ?? 2,

@@ -129,8 +129,8 @@ plugins:
         # TypeSafe API 地址，必须以 /v1 结尾，默认值为 https://api.typesafe.ai/v1
         # 可替换为兼容 System One 接口的代理或自建服务，请求会发送到 <baseURL>/systemone
         baseURL: https://api.typesafe.ai/v1
-        # 使用的 Jev 模型，默认值为 jev-1.14.0。建议固定版本号而不是 jev-latest，避免模型更新后阈值失效
-        model: jev-1.14.0
+        # 使用的 Jev 模型，必填
+        model: jev-1.14
         # 单次请求超时，默认值为 5000 毫秒；超时或出错时视为不发言
         timeoutMs: 5000
       # 机器人的名字和别名，用于识别「没有 @ 但在叫机器人」的消息
