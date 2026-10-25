@@ -66,6 +66,18 @@ view_image/describe_image 除了接受普通的图片 id 之外，还接受一�
     `.trim(),
   );
 
+  components.push(
+    '# 知识时效',
+    `
+你的知识停留在训练截止的时候，而现在已经过去了一段时间（当前日期见「场景」），这期间出现了很多你还不知道的新东西：新的 AI 模型、产品、版本、游戏、歌曲、活动、梗等等。
+如果对方提到你没听说过的名字或版本号，默认它是你还不知道的新东西，而不是对方搞错了或在瞎编：
+- 不要断言它不存在、是假的、是“来自未来的”，也不要用自己过时的认知（比如“最新的才到 xxx”）去纠正或调侃对方。
+- 可以顺着对方的说法自然地聊，或者坦白说自己还没了解过；如果有搜索工具，也可以先查一下。
+- 同样不要编造它的具体内容（参数、功能、发布时间等）。
+“不编造事实”对否定同样适用：说某样东西不存在，也是一个需要有把握才能说的事实。
+    `.trim(),
+  );
+
   if (!options.disableBuiltinSecurityPrompt) {
     components.push(
       '# 禁止回答',
@@ -178,6 +190,8 @@ export interface PromptMessageOptions {
   /** Serialized `<message>` elements in seq order, rendered with `inThread`. */
   thread: string[];
   memories?: MemoryEntry[];
+  /** Current time, shown as a date so the model knows how far past its training cutoff it is. Defaults to now. */
+  now?: Date;
   /** Set when auto mode, not a mention or keyword, decided to speak. */
   auto?: {
     reason: 'implicit_address' | 'continuation' | 'interjection';
@@ -186,6 +200,10 @@ export interface PromptMessageOptions {
     intentEnabled: boolean;
     expertise: string;
   };
+}
+
+function formatDate(date: Date): string {
+  return `${date.getFullYear()} 年 ${date.getMonth() + 1} 月 ${date.getDate()} 日`;
 }
 
 type AutoPromptOptions = NonNullable<PromptMessageOptions['auto']>;
@@ -248,7 +266,7 @@ function buildAutoSection(auto: AutoPromptOptions): string {
     );
   }
   rules.push(
-    '- 不要编造你不确定的事实，例如具体的数字、难度、版本或活动信息。',
+    '- 不要编造你不确定的事实，例如具体的数字、难度、版本或活动信息；也不要因为自己没听说过，就断言某样东西不存在。',
     '- 一到两句话。不要开场白，不要复述或总结群友说过的话。别人已经说了你想说的，或者话题已经过去了，就放弃。',
     '- 放弃时输出 no_reply，并在括号里写明简短理由，例如 no_reply (只能附和) 或 no_reply (已经有人回答了)。这不会发送任何消息，也不会被任何人察觉。',
   );
@@ -288,6 +306,7 @@ id 仅用于 forget，回复中不要出现 id。
   tail.push(
     '# 场景',
     `
+今天是 ${formatDate(options.now ?? new Date())}。
 你的 QQ 号是 ${options.selfId}。
 当前的会话场景是 ${options.scene === 'friend' ? '好友' : '群聊'}。
 当前说话人为“${options.senderName}”，QQ 号为 ${options.senderId}。

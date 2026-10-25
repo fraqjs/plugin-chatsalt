@@ -13,7 +13,7 @@ import {
   type JudgeFlags,
 } from '../src/auto/judge';
 import { type AutoReply, AutoScheduler, type AutoSchedulerOptions } from '../src/auto/scheduler';
-import { buildPromptMessage } from '../src/prompt';
+import { buildPromptMessage, buildSystemPrompt } from '../src/prompt';
 
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
@@ -178,6 +178,37 @@ describe('auto prompt', () => {
 
   it('points at an older target by seq', () => {
     assert.match(build('question', false), /seq 为 5 的消息。它之后/);
+  });
+
+  it('tells the date and forbids denying unknown things', () => {
+    const message = buildPromptMessage({
+      selfId: SELF,
+      scene: 'group',
+      peerId: GROUP,
+      senderId: 1,
+      senderName: 'a',
+      messageSeq: 5,
+      thread: ['<message/>'],
+      now: new Date(2026, 9, 25),
+    });
+    const parts = message.content as Array<{ text: string }>;
+    assert.match(parts.at(-1)?.text ?? '', /今天是 2026 年 10 月 25 日/);
+    assert.match(build('question'), /断言某样东西不存在/);
+  });
+});
+
+describe('system prompt', () => {
+  it('warns about the training cutoff regardless of the security prompt', () => {
+    const prompt = buildSystemPrompt({
+      persona: 'p',
+      disableBuiltinSecurityPrompt: true,
+      memoryEnabled: false,
+      webSearchEnabled: false,
+      webPageEnabled: false,
+      githubEnabled: false,
+    });
+    assert.match(prompt, /# 知识时效/);
+    assert.match(prompt, /不要断言它不存在/);
   });
 });
 
