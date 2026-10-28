@@ -25,180 +25,90 @@ plugins:
     # 在这里传入 WebuiGateway 的配置选项
 
   chatsalt:
-    # 角色设定文本，推荐使用 Markdown 格式，并且保存在另一个文件中以保持配置文件可读性。
-    # 这里的配置表示从 persona.md 文件中读取角色设定文本
-    # 角色设定文本会在每次对话开始时被注入到上下文中。
+    # 角色设定文本，这里表示从 persona.md 文件中读取，见下方「编写人设」一节
     persona: ${{ text:persona.md }}
-
-    # 用于对话的语言模型，可以指定在 fraqjs/ai 插件中配置的模型名称或别名
-    # 默认使用 ctx.ai.model() 获取的模型
-    # chatModel: google/gemini-3.5-flash
-
-    # 用于图像识别的语言模型，可以指定在 fraqjs/ai 插件中配置的模型名称或别名
-    # 默认使用 chatModel 中指定的模型，如果未指定，则使用 ctx.ai.model() 获取的模型
-    # visionModel: openai/gpt-5.6-luna
-
-    # 主人（管理员）列表，可用于执行部分命令，但不会将相关信息注入 prompt
+    # 主人（管理员）列表
     owners: [10001, 10002]
-    # 上下文窗口大小，即提供给大模型的最少消息数，默认值为 20
-    contextWindow: 20
-    # 上下文窗口起点的移动步长，默认值为 10
-    # 窗口起点每隔 contextStep 条消息才向后移动一次，期间的对话只在上下文末尾追加消息，便于命中模型提供商的提示词缓存；
-    # 因此实际提供的消息数在 contextWindow 到 contextWindow + contextStep - 1 之间浮动（撤回等缺失的消息不计入）。
-    # 设为 1 则每条新消息都会移动窗口起点，即固定提供 contextWindow 条消息，但几乎无法命中缓存
-    contextStep: 10
-    # 若上下文中包含合并转发消息，则最多展开的层数，默认值为 0，即不展开
-    maxForwardDepth: 0
-    # 用于对话的温度参数，默认值为 0.7
-    temperature: 0.7
-    # 在调用工具时，最多允许的步骤数，默认值为 10
-    maxToolSteps: 10
-    # 有关触发对话的配置项
+    # 消息中包含这些关键词时触发对话
     trigger:
-      # 触发对话的关键词列表，若消息中包含这些关键词，则会触发对话
-      keywords:
-        # - salt
-        # - 机器人
-    # 有关表情和 @ 的配置项，见下方「表情和 @」一节
-    richText:
-      # 是否允许模型在回复中发送 QQ 表情和 @，默认值为 true
-      enabled: true
-      # 在提示词中推荐给模型的表情 ID 列表，填写不存在的表情 ID 会在启动时报错
-      # 默认值为 [111, 479, 478, 424, 264, 181, 277, 344, 297, 352]，
-      # 即：可怜、不对不对、对的对的、捂脸、戳一戳、汪汪、大怨种、拜谢
-      recommendedFaces: [111, 479, 478, 264, 181, 277, 344, 297]
-    # 有关记忆的配置项
-    memory:
-      # 是否启用记忆功能，默认值为 true
-      enabled: true
-      # 记忆窗口大小，即在对话中最多注入的记忆条数，默认值为 20
-      maxWindow: 20
-      # 对于每个对话场景，最多允许的记忆条数，默认值为 50
-      maxScopeCount: 50
-    # 有关模型内置网页搜索工具的配置项
-    # 启用前，请确认你使用的模型是否支持
-    builtinWebSearch:
-      # 是否启用模型内置网页搜索工具，默认值为 false
-      # 目前仅支持如下 AI SDK 提供的模型：
-      # - @ai-sdk/anthropic
-      # - @ai-sdk/google
-      # - @ai-sdk/openai
-      # 此外，请确认你使用的模型是否支持网页搜索工具，否则启用后可能会导致模型无法正常工作
-      enabled: false
-    # 有关外部网页搜索工具的配置项
-    externalWebSearch:
-      # 是否启用外部网页搜索工具，默认值为 false
-      enabled: false
-      # 若启用，使用的语言模型，默认值为 chatModel 中指定的模型，如果未指定，则使用 ctx.ai.model() 获取的模型
-      # 目前只支持上述三种模型提供的网页搜索工具
-      model: openai/gpt-5.6-luna
-    # 有关直接读取网页的配置项。启用后，模型可以读取上下文中明确提供的 HTTP 或 HTTPS URL
-    # 支持 HTML、JSON、XML、Markdown、CSV 和纯文本；XML 只作为文本读取，不会解析外部实体
-    webPage:
-      # 是否启用网页读取工具，默认值为 false
-      enabled: false
-      # 单次请求超时时间，默认值为 10000 毫秒
-      timeoutMs: 10000
-      # 最大响应正文大小，默认值为 2 MiB
-      maxResponseBytes: 2097152
-      # 返回给模型的最大正文字符数，默认值为 20000
-      maxContentLength: 20000
-      # 最大重定向次数，默认值为 3；每次重定向都会重新校验目标地址
-      maxRedirects: 3
-    # 有关 GitHub 工具的配置项
-    github:
-      # 是否启用 GitHub 工具，默认值为 false
-      enabled: false
-      # 若启用，必须提供 GitHub 访问令牌（token），用于访问 GitHub API
-      token: ${{ env:GITHUB_TOKEN }}
-    # 有关 WebUI 的配置项
-    webui:
-      # 是否注册 WebUI，默认值为 true
-      enabled: true
-      # 内存中最多保留的对话记录数，默认值为 100
-      conversationLimit: 100
-      # 内存中最多保留的警告记录数，默认值为 100
-      warningLimit: 100
-      # WebUI 最多查询的记忆条数，默认值为 500
-      memoryLimit: 500
-      # 内存中最多保留的自动判断记录数，默认值为 300
-      autoDecisionLimit: 300
-    # 有关自动模式（实验性）的配置项，见下方「自动模式」一节
-    auto:
-      # 是否启用自动模式，默认值为 false
-      enabled: false
-      # 启用自动模式的群号白名单，必填
-      groups: [123456789]
-      # 影子模式：照常判断和生成回复，但不发送，只记录到 WebUI，用于测试参数，默认值为 false
-      shadow: false
-      jev:
-        # TypeSafe API Key，必填
-        apiKey: ${{ env:TYPESAFE_API_KEY }}
-        # TypeSafe API 地址，必须以 /v1 结尾，默认值为 https://api.typesafe.ai/v1
-        # 可替换为兼容 System One 接口的代理或自建服务，请求会发送到 <baseURL>/systemone
-        baseURL: https://api.typesafe.ai/v1
-        # 使用的 Jev 模型，必填
-        model: jev-1.14
-        # 单次请求超时，默认值为 5000 毫秒；超时或出错时视为不发言
-        timeoutMs: 5000
-      # 机器人的名字和别名，用于识别「没有 @ 但在叫机器人」的消息
-      names: [纱露朵, 盐, bot, 机器人]
-      # 机器人擅长的领域，必填。只有在这个范围内，机器人才会主动插话。
-      # Jev 以英文训练为主，推荐用英文描述，可以夹带中文专有名词
-      expertise: 'maimai DX (舞萌) rhythm game: charts, difficulty constants, rating, song unlocks, play technique.'
-      # 不参与的话题，默认值为 [politics, history, romance or sexual content]
-      avoidTopics: [politics, history, romance or sexual content]
-      # 提供给 Jev 的上下文消息条数，默认值为 8
-      stateMessages: 8
-      # 群里安静多久后才做决定，默认值为 3000 毫秒
-      debounceMs: 3000
-      # 刷屏时最多等待多久后做决定，默认值为 10000 毫秒
-      maxBurstWaitMs: 10000
-      # 对哪些类型的消息主动插话，默认值为 { question: 0.6, share_success: 0.6 }
-      # 每一项可以写成一个数字，表示 Jev 判定为该类型的最低概率，话题门槛沿用 thresholds.topicFit；
-      # 也可以写成 { probability, topicFit }，为该类型单独设置话题门槛（0-3，设为 0 表示不要求擅长领域）。
-      # 未列出的类型不会触发主动插话。可选类型：
-      #   chatter        闲聊、玩梗、表情、日常
-      #   share_setback  分享自己的失败、倒霉或烦恼，没有求助
-      #   share_success  分享自己的成就、进展或好运
-      #   discussion     分享信息，或发表看法、发起讨论
-      #   question       提问、求助、求推荐
-      # 对话模型拿到的是 Jev 判断出的最可能类型：如果这个类型在此列出，模型会得到正面的回应规范（怎样接得好）；
-      # 如果没有列出（消息是靠别的类型的规则通过的），模型会得到偏谨慎的规范，大多会放弃发言。
-      # 例如设置 question: 0 后，擅长领域内的闲聊也会进入生成，但模型会被告知「这只是闲聊，并不需要你回应」
-      interject:
-        question: 0.6
-        share_success: 0.6
-      # 各类型在本领域中的典型说法，会追加到 Jev 的判断标准中。内置标准只包含通用的中文例子，
-      # 圈内黑话（Jev 不一定认识）需要在这里补充。以舞萌为例：
-      intentHints:
-        share_success: ['我把 xx 收了', '鸟加了', 'AP 了', 'rating 推到 15000 了']
-        share_setback: ['又寸了', '这谱根本打不过']
-        question: ['这谱怎么打', '定数多少']
-      # 主动插话的消息必须在群里最近几条消息之内，默认值为 3
-      interjectWithin: 3
-      # 主动插话的配额（被叫到和接话不受限制）
-      budget:
-        # 每个群每小时最多主动插话次数，默认值为 3
-        perHour: 3
-        # 两次主动插话的最小间隔，默认值为 600000 毫秒（10 分钟）
-        minIntervalMs: 600000
-        # 对同一个群成员的消息两次主动插话的最小间隔，默认值为 1800000 毫秒（30 分钟）
-        perUserIntervalMs: 1800000
-      # 有人嫌机器人烦时，自动模式在该群静音的时长，默认值为 21600000 毫秒（6 小时）
-      muteOnComplaintMs: 21600000
-      # 判断阈值，一般不需要修改，可在 WebUI「自动判断」页观察概率后调整
-      thresholds:
-        addressed: 0.75       # 判定「在叫机器人」的最低概率
-        continuation: 0.7     # 判定「在接机器人的话」的最低概率
-        topicFit: 2.3         # 主动插话要求的话题相关度（0-3）
-        privateExchange: 0.4  # 高于此值视为别人在私聊，不插话
-        sensitive: 0.6        # 高于此值视为敏感话题，一律沉默
-        wantsBotQuiet: 0.7    # 高于此值视为嫌机器人烦，触发静音
+      keywords: [salt, 机器人]
 ```
+
+以上就是一个可以运行的配置，未列出的选项都会使用默认值。完整选项见下方「配置参考」一节。
 
 安装并配置 `fraqjs/webui-gateway` 后，可通过 `/webui/chatsalt/` 查看对话、警告和记忆记录。WebUI 由
 Gateway 统一鉴权；如果未安装 Gateway，Chatsalt 不会注册任何 WebUI 路由。
+
+## 配置参考
+
+以下选项都写在 `chatsalt` 字段下，嵌套的选项用 `.` 表示层级，例如 `memory.enabled` 对应：
+
+```yaml
+chatsalt:
+  memory:
+    enabled: true
+```
+
+表情和 @（`richText`）、自动模式（`auto`）的配置分别见对应章节。
+
+### 基础
+
+| 选项 | 默认值 | 说明 |
+| --- | --- | --- |
+| `persona` | 必填 | 角色设定文本，会在每次对话开始时注入上下文。推荐使用 Markdown 格式，并用 `${{ text:persona.md }}` 从另一个文件读取，以保持配置文件可读性 |
+| `chatModel` | `ctx.ai.model()` | 用于对话的语言模型，可以指定在 `fraqjs/ai` 插件中配置的模型名称或别名，例如 `google/gemini-3.5-flash` |
+| `visionModel` | 同 `chatModel` | 用于图像识别的语言模型，取值同上 |
+| `owners` | `[]` | 主人（管理员）QQ 号列表，可用于执行部分命令，但不会将相关信息注入提示词 |
+| `temperature` | `0.8` | 对话的温度参数 |
+| `maxToolSteps` | `10` | 调用工具时最多允许的步骤数 |
+| `trigger.keywords` | `[]` | 触发对话的关键词列表，消息中包含任一关键词即触发对话 |
+
+### 上下文
+
+| 选项 | 默认值 | 说明 |
+| --- | --- | --- |
+| `contextWindow` | `20` | 上下文窗口大小，即提供给大模型的最少消息数 |
+| `contextStep` | `10` | 上下文窗口起点的移动步长，见下文 |
+| `maxForwardDepth` | `0` | 上下文中包含合并转发消息时最多展开的层数，`0` 表示不展开 |
+
+窗口起点每隔 `contextStep` 条消息才向后移动一次，期间的对话只在上下文末尾追加消息，便于命中模型提供商的提示词缓存。因此实际提供的消息数在 `contextWindow` 到 `contextWindow + contextStep - 1` 之间浮动（撤回等缺失的消息不计入）。设为 `1` 则每条新消息都会移动窗口起点，即固定提供 `contextWindow` 条消息，但几乎无法命中缓存。
+
+### 记忆
+
+| 选项 | 默认值 | 说明 |
+| --- | --- | --- |
+| `memory.enabled` | `true` | 是否启用记忆功能 |
+| `memory.maxWindow` | `20` | 在对话中最多注入的记忆条数 |
+| `memory.maxScopeCount` | `50` | 每个对话场景最多允许的记忆条数 |
+
+### 工具
+
+| 选项 | 默认值 | 说明 |
+| --- | --- | --- |
+| `builtinWebSearch.enabled` | `false` | 是否启用模型内置的网页搜索工具，见下文 |
+| `externalWebSearch.enabled` | `false` | 是否启用外部网页搜索工具，即由另一个模型执行搜索 |
+| `externalWebSearch.model` | 同 `chatModel` | 执行外部网页搜索的模型，同样只支持下文列出的三种提供商 |
+| `webPage.enabled` | `false` | 是否允许模型读取上下文中明确提供的 HTTP 或 HTTPS URL |
+| `webPage.timeoutMs` | `10000` | 单次请求超时时间（毫秒） |
+| `webPage.maxResponseBytes` | `2097152`（2 MiB） | 最大响应正文大小 |
+| `webPage.maxContentLength` | `20000` | 返回给模型的最大正文字符数 |
+| `webPage.maxRedirects` | `3` | 最大重定向次数，每次重定向都会重新校验目标地址 |
+| `github.enabled` | `false` | 是否启用 GitHub 工具 |
+| `github.token` | — | GitHub 访问令牌，启用 GitHub 工具时必填，例如 `${{ env:GITHUB_TOKEN }}` |
+
+模型内置网页搜索目前仅支持以下 AI SDK 提供商的模型：`@ai-sdk/anthropic`、`@ai-sdk/google`、`@ai-sdk/openai`。启用前请确认你使用的模型本身支持网页搜索工具，否则可能导致模型无法正常工作。
+
+网页读取支持 HTML、JSON、XML、Markdown、CSV 和纯文本；XML 只作为文本读取，不会解析外部实体。
+
+### WebUI
+
+| 选项 | 默认值 | 说明 |
+| --- | --- | --- |
+| `webui.enabled` | `true` | 是否注册 WebUI（需要安装 `fraqjs/webui-gateway`） |
+| `webui.conversationLimit` | `100` | 内存中最多保留的对话记录数 |
+| `webui.warningLimit` | `100` | 内存中最多保留的警告记录数 |
+| `webui.memoryLimit` | `500` | WebUI 最多查询的记忆条数 |
+| `webui.autoDecisionLimit` | `300` | 内存中最多保留的自动判断记录数 |
 
 ## 编写人设
 
@@ -242,6 +152,11 @@ Gateway 统一鉴权；如果未安装 Gateway，Chatsalt 不会注册任何 Web
 - @ 只在群聊中有效，并且只能 @ 当前上下文中出现过的人（发过消息或被 @ 过）；不能 @ 机器人自己，也不能 @ 全体成员。
 - 格式错误、表情 ID 不存在或不允许的 milky 码会被直接删除，不会原样发到群里，同时在 WebUI 中记录一条警告。如果删除后回复为空，则不发送。
 
+| 选项 | 默认值 | 说明 |
+| --- | --- | --- |
+| `richText.enabled` | `true` | 是否允许模型在回复中发送 QQ 表情和 @ |
+| `richText.recommendedFaces` | `[111, 479, 478, 264, 181, 277, 344, 297]` | 在提示词中推荐给模型的表情 ID 列表，默认依次为可怜、不对不对、对的对的、捂脸、戳一戳、汪汪、大怨种、拜谢。填写不存在的表情 ID 会在启动时报错 |
+
 ## 自动模式（实验性）
 
 启用后，机器人会在白名单群里自己判断是否开口，不需要 @。判断由 TypeSafe 的决策模型 [Jev](https://docs.typesafe.ai/) 完成，它只返回概率，不生成文字，每条消息的判断成本极低。
@@ -263,6 +178,89 @@ Gateway 统一鉴权；如果未安装 Gateway，Chatsalt 不会注册任何 Web
 建议先开启 `shadow: true` 运行一段时间，在 WebUI 的「自动判断」页查看每条消息的各项概率和最终决定，确认没问题后再关闭影子模式。也可以先用 `pnpm tsx test/jev-probe.ts`（需要设置 `TYPESAFE_API_KEY`）查看 Jev 对几条示例消息的判断。
 
 > 自动模式会把白名单群中的消息发送给 TypeSafe 进行判断，请在启用前告知群成员。
+
+### 自动模式配置
+
+一个最小的自动模式配置如下，以舞萌（maimai DX）群为例：
+
+```yaml
+chatsalt:
+  auto:
+    enabled: true
+    groups: [123456789]
+    shadow: true
+    jev:
+      apiKey: ${{ env:TYPESAFE_API_KEY }}
+      model: jev-1.14
+    names: [纱露朵, 盐, bot, 机器人]
+    expertise: 'maimai DX (舞萌) rhythm game: charts, difficulty constants, rating, song unlocks, play technique.'
+    intentHints:
+      share_success: ['我把 xx 收了', '鸟加了', 'AP 了', 'rating 推到 15000 了']
+      share_setback: ['又寸了', '这谱根本打不过']
+      question: ['这谱怎么打', '定数多少']
+```
+
+#### 基本选项
+
+| 选项 | 默认值 | 说明 |
+| --- | --- | --- |
+| `auto.enabled` | `false` | 是否启用自动模式 |
+| `auto.groups` | 必填 | 启用自动模式的群号白名单 |
+| `auto.shadow` | `false` | 影子模式：照常判断和生成回复，但不发送，只记录到 WebUI，用于测试参数 |
+| `auto.jev.apiKey` | 必填 | TypeSafe API Key |
+| `auto.jev.model` | 必填 | 使用的 Jev 模型，例如 `jev-1.14` |
+| `auto.jev.baseURL` | `https://api.typesafe.ai/v1` | TypeSafe API 地址，必须以 `/v1` 结尾。可替换为兼容 System One 接口的代理或自建服务，请求会发送到 `<baseURL>/systemone` |
+| `auto.jev.timeoutMs` | `5000` | 单次请求超时（毫秒），超时或出错时视为不发言 |
+| `auto.names` | `[]` | 机器人的名字和别名，用于识别「没有 @ 但在叫机器人」的消息 |
+| `auto.expertise` | 必填 | 机器人擅长的领域，只有在这个范围内才会主动插话。Jev 以英文训练为主，推荐用英文描述，可以夹带中文专有名词 |
+| `auto.avoidTopics` | `[politics, history, romance or sexual content]` | 不参与的话题 |
+| `auto.intentHints` | `{}` | 各消息类型在本领域中的典型说法，会追加到 Jev 的判断标准中。内置标准只包含通用的中文例子，圈内黑话（Jev 不一定认识）需要在这里补充 |
+
+#### 主动插话
+
+| 选项 | 默认值 | 说明 |
+| --- | --- | --- |
+| `auto.interject` | `{ question: 0.6, share_success: 0.6 }` | 对哪些类型的消息主动插话，见下文 |
+| `auto.interjectWithin` | `3` | 主动插话的消息必须在群里最近几条消息之内 |
+| `auto.budget.perHour` | `3` | 每个群每小时最多主动插话次数 |
+| `auto.budget.minIntervalMs` | `600000`（10 分钟） | 两次主动插话的最小间隔 |
+| `auto.budget.perUserIntervalMs` | `1800000`（30 分钟） | 对同一个群成员的消息两次主动插话的最小间隔 |
+
+`budget` 只限制主动插话，被叫到和接话不受限制。
+
+`interject` 的每一项可以写成一个数字，表示 Jev 判定为该类型的最低概率，话题门槛沿用 `thresholds.topicFit`；也可以写成 `{ probability, topicFit }`，为该类型单独设置话题门槛（0-3，设为 `0` 表示不要求擅长领域）。未列出的类型不会触发主动插话。可选类型：
+
+| 类型 | 含义 |
+| --- | --- |
+| `chatter` | 闲聊、玩梗、表情、日常 |
+| `share_setback` | 分享自己的失败、倒霉或烦恼，没有求助 |
+| `share_success` | 分享自己的成就、进展或好运 |
+| `discussion` | 分享信息，或发表看法、发起讨论 |
+| `question` | 提问、求助、求推荐 |
+
+对话模型拿到的是 Jev 判断出的最可能类型：如果这个类型在 `interject` 中列出，模型会得到正面的回应规范（怎样接得好）；如果没有列出（消息是靠别的类型的规则通过的），模型会得到偏谨慎的规范，大多会放弃发言。例如设置 `question: 0` 后，擅长领域内的闲聊也会进入生成，但模型会被告知「这只是闲聊，并不需要你回应」。
+
+#### 时机与静音
+
+| 选项 | 默认值 | 说明 |
+| --- | --- | --- |
+| `auto.stateMessages` | `8` | 提供给 Jev 的上下文消息条数 |
+| `auto.debounceMs` | `3000` | 群里安静多久后才做决定（毫秒） |
+| `auto.maxBurstWaitMs` | `10000` | 刷屏时最多等待多久后做决定（毫秒） |
+| `auto.muteOnComplaintMs` | `21600000`（6 小时） | 有人嫌机器人烦时，自动模式在该群静音的时长 |
+
+#### 判断阈值
+
+一般不需要修改，可在 WebUI「自动判断」页观察概率后调整。
+
+| 选项 | 默认值 | 说明 |
+| --- | --- | --- |
+| `auto.thresholds.addressed` | `0.75` | 判定「在叫机器人」的最低概率 |
+| `auto.thresholds.continuation` | `0.7` | 判定「在接机器人的话」的最低概率 |
+| `auto.thresholds.topicFit` | `2.3` | 主动插话要求的话题相关度（0-3） |
+| `auto.thresholds.privateExchange` | `0.4` | 高于此值视为别人在私聊，不插话 |
+| `auto.thresholds.sensitive` | `0.6` | 高于此值视为敏感话题，一律沉默 |
+| `auto.thresholds.wantsBotQuiet` | `0.7` | 高于此值视为嫌机器人烦，触发静音 |
 
 ### 配置一个爱插话的机器人
 
