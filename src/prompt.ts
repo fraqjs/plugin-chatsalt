@@ -21,6 +21,9 @@ export interface SystemPromptOptions {
   webSearchEnabled: boolean;
   webPageEnabled: boolean;
   githubEnabled: boolean;
+  richTextEnabled: boolean;
+  /** Faces recommended to the model when rich text is enabled. */
+  recommendedFaces: { id: number; name: string }[];
   extraPrompt?: string;
 }
 
@@ -65,6 +68,31 @@ view_image/describe_image 除了接受普通的图片 id 之外，还接受一�
 不要使用 Markdown 格式。不要输出任何 XML 格式的内容。
     `.trim(),
   );
+
+  if (options.richTextEnabled) {
+    const [example = { id: 14, name: '微笑' }] = options.recommendedFaces;
+    const faceGuide =
+      options.recommendedFaces.length > 0
+        ? `推荐优先使用下面这些表情；<thread> 中 <face> 的 face_id 也可以照着用：
+${options.recommendedFaces.map((face) => `${face.id} ${face.name}`).join('\n')}`
+        : '表情 ID 可以照着 <thread> 中 <face> 的 face_id 用。';
+    components.push(
+      '# 表情和 @',
+      `
+回复里可以用 milky 码插入 QQ 表情或 @ 某人，milky 码会被替换成真正的表情和 @：
+- [milky:face-表情ID]：插入表情，例如 [milky:face-${example.id}] 是“${example.name}”。
+- [milky:mention-QQ号]：@ 某人，例如 [milky:mention-10001]。
+
+${faceGuide}
+
+使用要求：
+- 表情是点缀，不要每句话都带，一条回复最多一两个。
+- @ 只在群聊中有效，且只能 @ <thread> 中出现过的人。不要 @ 你自己，也不要 @ 全体成员。
+- 你的回复默认会引用对方的消息，所以回复对方时通常不需要再 @ 对方；需要叫第三个人时才 @。
+- 不要输出 <face>、<mention> 这样的 XML，只用 milky 码。
+      `.trim(),
+    );
+  }
 
   components.push(
     '# 知识时效',

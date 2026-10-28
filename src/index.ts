@@ -18,6 +18,7 @@ import {
 import { type AutoReply, AutoScheduler } from './auto/scheduler';
 import { cacheBreakpoint, cacheLatestStepMessage } from './cache';
 import { MemoryStore } from './memory';
+import { DEFAULT_RECOMMENDED_FACES, faceName, parseMilkyCodes } from './milky';
 import { buildPromptMessage, buildSystemPrompt, extractSenderName } from './prompt';
 import {
   describeImageTool,
@@ -45,6 +46,15 @@ export interface ChatsaltPluginOptions {
   extraPrompt?: string;
   trigger?: {
     keywords?: string[];
+  };
+  richText?: {
+    /** Lets the model send faces and mentions with `[milky:face-ID]` and `[milky:mention-QQ]` codes. */
+    enabled?: boolean;
+    /**
+     * Face IDs listed in the prompt as recommendations; defaults to a small set of common faces.
+     * The model may still send any other known face, such as one it saw in the thread.
+     */
+    recommendedFaces?: number[];
   };
   memory?: {
     enabled?: boolean;
@@ -213,6 +223,14 @@ export const ChatsaltPlugin = definePlugin({
     }
     const githubToken = options.github?.token;
 
+    const richTextEnabled = options.richText?.enabled ?? true;
+    const recommendedFaces = options.richText?.recommendedFaces ?? DEFAULT_RECOMMENDED_FACES;
+    for (const faceId of recommendedFaces) {
+      if (faceName(faceId) === undefined) {
+        throw new Error(`Unknown face ID ${faceId} in richText.recommendedFaces.`);
+      }
+    }
+
     const debug_respondRejectedMessages = options.debug?.respondRejectedMessages ?? false;
     const debug_logAllToolCalls = options.debug?.logAllToolCalls ?? false;
 
@@ -225,6 +243,8 @@ export const ChatsaltPlugin = definePlugin({
         webSearchEnabled: builtinWebSearchEnabled || externalWebSearchEnabled,
         webPageEnabled,
         githubEnabled,
+        richTextEnabled,
+        recommendedFaces: recommendedFaces.map((id) => ({ id, name: faceName(id) as string })),
         extraPrompt: options.extraPrompt,
       }),
       providerOptions: cacheBreakpoint,
@@ -494,7 +514,15 @@ export const ChatsaltPlugin = definePlugin({
         const targetIsLatest = threadMessages.at(-1)?.message_seq === data.message_seq;
         const thread: ThreadResources = { resources: {}, files: {}, forwards: {} };
         const threadXml: string[] = [];
+        // Only users seen in the thread may be mentioned, so the model cannot be talked into pinging strangers.
+        const mentionable = new Map<number, string>();
         for (const message of threadMessages) {
+          mentionable.set(message.sender_id, extractSenderName(message));
+          for (const segment of message.segments) {
+            if (segment.type === 'mention' && !mentionable.has(segment.data.user_id)) {
+              mentionable.set(segment.data.user_id, segment.data.name);
+            }
+          }
           const rendered = await xmlify(ctx, message, { maxForwardDepth, inThread: true });
           threadXml.push(rendered.xmlContent);
           Object.assign(thread.resources, rendered.resources);
@@ -662,17 +690,40 @@ export const ChatsaltPlugin = definePlugin({
           return;
         }
 
+        mentionable.delete(self_id);
+        const parsed = richTextEnabled
+          ? parseMilkyCodes(text, { scene: data.message_scene, mentions: mentionable })
+          : { segments: msg`${text}`, plain: text, dropped: [] };
+        if (parsed.dropped.length > 0) {
+          ctx.logger.warn(`Dropped milky codes from reply to ${data.message_seq}: ${parsed.dropped.join(' ')}`);
+          activity.recordWarning({
+            ...recordContext,
+            kind: 'generation',
+            message: '回复中有无效的 milky 码，已丢弃',
+            detail: parsed.dropped.join(' '),
+          });
+        }
+        if (parsed.segments.length === 0) {
+          activity.recordConversation({
+            ...conversationContext,
+            output: text,
+            outcome: 'skipped',
+            ...getActivityMetrics(),
+          });
+          return;
+        }
+
         // An interjection on the newest message reads more naturally without a quote.
         const quote =
           !isAuto || data.message_scene !== 'group' || autoScheduler?.hasNewerMessage(data.peer_id, data.message_seq);
-        const message = quote ? msg`${seg.reply(data.message_seq)}${text}` : msg`${text}`;
+        const message = quote ? [seg.reply(data.message_seq), ...parsed.segments] : parsed.segments;
         switch (data.message_scene) {
           case 'friend':
             await ctx.client.send_private_message({ user_id: data.sender_id, message });
             break;
           case 'group': {
             const sent = await ctx.client.send_group_message({ group_id: data.peer_id, message });
-            autoScheduler?.recordBotMessage(data.peer_id, sent.message_seq, text);
+            autoScheduler?.recordBotMessage(data.peer_id, sent.message_seq, parsed.plain);
             break;
           }
         }
