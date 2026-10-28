@@ -121,8 +121,8 @@ plugins:
       enabled: false
       # 启用自动模式的群号白名单，必填
       groups: [123456789]
-      # 影子模式：照常判断和生成回复，但不发送，只记录到 WebUI，默认值为 false
-      shadow: true
+      # 影子模式：照常判断和生成回复，但不发送，只记录到 WebUI，用于测试参数，默认值为 false
+      shadow: false
       jev:
         # TypeSafe API Key，必填
         apiKey: ${{ env:TYPESAFE_API_KEY }}
