@@ -191,7 +191,7 @@ chatsalt:
     shadow: true
     jev:
       apiKey: ${{ env:TYPESAFE_API_KEY }}
-      model: jev-1.14
+      model: jev-1.14.0
     names: [纱露朵, 盐, bot, 机器人]
     expertise: 'maimai DX (舞萌) rhythm game: charts, difficulty constants, rating, song unlocks, play technique.'
     intentHints:
@@ -208,7 +208,7 @@ chatsalt:
 | `auto.groups` | 必填 | 启用自动模式的群号白名单 |
 | `auto.shadow` | `false` | 影子模式：照常判断和生成回复，但不发送，只记录到 WebUI，用于测试参数 |
 | `auto.jev.apiKey` | 必填 | TypeSafe API Key |
-| `auto.jev.model` | 必填 | 使用的 Jev 模型，例如 `jev-1.14` |
+| `auto.jev.model` | 必填 | 使用的 Jev 模型，例如 `jev-1.14.0` |
 | `auto.jev.baseURL` | `https://api.typesafe.ai/v1` | TypeSafe API 地址，必须以 `/v1` 结尾。可替换为兼容 System One 接口的代理或自建服务，请求会发送到 `<baseURL>/systemone` |
 | `auto.jev.timeoutMs` | `5000` | 单次请求超时（毫秒），超时或出错时视为不发言 |
 | `auto.names` | `[]` | 机器人的名字和别名，用于识别「没有 @ 但在叫机器人」的消息 |
