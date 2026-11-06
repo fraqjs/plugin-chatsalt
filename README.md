@@ -159,7 +159,7 @@ chatsalt:
 
 ## 自动模式（实验性）
 
-启用后，机器人会在白名单群里自己判断是否开口，不需要 @。判断由 TypeSafe 的决策模型 [Jev](https://docs.typesafe.ai/) 完成，它只返回概率，不生成文字，每条消息的判断成本极低。
+启用后，机器人会在白名单群里自己判断是否开口，不需要 @。判断可使用 TypeSafe 的 [System One API](https://docs.typesafe.ai/api/system-one) 或 OpenAI 的 [Decisions API](https://developers.openai.com/api/docs/guides/decisions)，只返回分类、概率和评分。
 
 机器人只会在三种情况下开口：
 
@@ -175,9 +175,9 @@ chatsalt:
 - 主动插话时，对话模型会按消息类型得到不同的规范：提问时只给确切答案；分享成就时可以直接恭喜，了解情况才带细节；分享挫折时只安慰，不随意指点；讨论只在能补充具体内容时才接话。所有类型都不允许编造事实，也不允许因为没听说过就断言某样东西不存在。
 - 自动模式下机器人不会给消息加表情回应。主动插话回复的是最新消息时，不会引用原消息。
 
-建议先开启 `shadow: true` 运行一段时间，在 WebUI 的「自动判断」页查看每条消息的各项概率和最终决定，确认没问题后再关闭影子模式。也可以先用 `pnpm tsx test/jev-probe.ts`（需要设置 `TYPESAFE_API_KEY`）查看 Jev 对几条示例消息的判断。
+建议先开启 `shadow: true` 运行一段时间，在 WebUI 的「自动判断」页查看每条消息的各项概率和最终决定，确认没问题后再关闭影子模式。切换供应商后建议重新观察概率分布并校准阈值。
 
-> 自动模式会把白名单群中的消息发送给 TypeSafe 进行判断，请在启用前告知群成员。
+> 自动模式会把白名单群中的消息发送给所配置的决策服务进行判断，请在启用前告知群成员。
 
 ### 自动模式配置
 
@@ -189,7 +189,8 @@ chatsalt:
     enabled: true
     groups: [123456789]
     shadow: true
-    jev:
+    decisions:
+      type: systemone
       apiKey: ${{ env:TYPESAFE_API_KEY }}
       model: jev-1.14.0
     names: [纱露朵, 盐, bot, 机器人]
@@ -200,6 +201,15 @@ chatsalt:
       question: ['这谱怎么打', '定数多少']
 ```
 
+使用 OpenAI 时，将上述 `auto.decisions` 替换为：
+
+```yaml
+decisions:
+  type: decisions
+  apiKey: ${{ env:OPENAI_API_KEY }}
+  model: gpt-6-luna
+```
+
 #### 基本选项
 
 | 选项 | 默认值 | 说明 |
@@ -207,14 +217,16 @@ chatsalt:
 | `auto.enabled` | `false` | 是否启用自动模式 |
 | `auto.groups` | 必填 | 启用自动模式的群号白名单 |
 | `auto.shadow` | `false` | 影子模式：照常判断和生成回复，但不发送，只记录到 WebUI，用于测试参数 |
-| `auto.jev.apiKey` | 必填 | TypeSafe API Key |
-| `auto.jev.model` | 必填 | 使用的 Jev 模型，例如 `jev-1.14.0` |
-| `auto.jev.baseURL` | `https://api.typesafe.ai/v1` | TypeSafe API 地址，必须以 `/v1` 结尾。可替换为兼容 System One 接口的代理或自建服务，请求会发送到 `<baseURL>/systemone` |
-| `auto.jev.timeoutMs` | `5000` | 单次请求超时（毫秒），超时或出错时视为不发言 |
+| `auto.decisions.type` | 必填 | `systemone`（TypeSafe）或 `decisions`（OpenAI） |
+| `auto.decisions.apiKey` | 必填 | 所选服务的 API Key |
+| `auto.decisions.model` | 必填 | 所用的决策模型，例如 `jev-1.14.0`、`gpt-6-luna` |
+| `auto.decisions.baseURL` | 随类型选择 | `systemone` 默认 `https://api.typesafe.ai/v1`，`decisions` 默认 `https://api.openai.com/v1`。必须以 `/v1` 结尾，分别追加 `/systemone` 或 `/decisions`，可使用兼容对应协议的代理 |
+| `auto.decisions.timeoutMs` | `5000` | 单次请求超时（毫秒）；最终失败时不发言 |
+| `auto.decisions.maxRetries` | `2` | 网络错误、超时或可重试 HTTP 错误的额外重试次数，`0` 表示不重试 |
 | `auto.names` | `[]` | 机器人的名字和别名，用于识别「没有 @ 但在叫机器人」的消息 |
-| `auto.expertise` | 必填 | 机器人擅长的领域，只有在这个范围内才会主动插话。Jev 以英文训练为主，推荐用英文描述，可以夹带中文专有名词 |
+| `auto.expertise` | 必填 | 机器人擅长的领域，只有在这个范围内才会主动插话。推荐用英文描述，可以夹带中文专有名词 |
 | `auto.avoidTopics` | `[politics, history, romance or sexual content]` | 不参与的话题 |
-| `auto.intentHints` | `{}` | 各消息类型在本领域中的典型说法，会追加到 Jev 的判断标准中。内置标准只包含通用的中文例子，圈内黑话（Jev 不一定认识）需要在这里补充 |
+| `auto.intentHints` | `{}` | 各消息类型在本领域中的典型说法，会追加到决策模型的判断标准中。内置标准只包含通用的中文例子，圈内黑话（模型不一定认识）需要在这里补充 |
 
 #### 主动插话
 
@@ -228,7 +240,7 @@ chatsalt:
 
 `budget` 只限制主动插话，被叫到和接话不受限制。
 
-`interject` 的每一项可以写成一个数字，表示 Jev 判定为该类型的最低概率，话题门槛沿用 `thresholds.topicFit`；也可以写成 `{ probability, topicFit }`，为该类型单独设置话题门槛（0-3，设为 `0` 表示不要求擅长领域）。未列出的类型不会触发主动插话。可选类型：
+`interject` 的每一项可以写成一个数字，表示决策模型判定为该类型的最低概率，话题门槛沿用 `thresholds.topicFit`；也可以写成 `{ probability, topicFit }`，为该类型单独设置话题门槛（0-3，设为 `0` 表示不要求擅长领域）。未列出的类型不会触发主动插话。可选类型：
 
 | 类型 | 含义 |
 | --- | --- |
@@ -238,13 +250,13 @@ chatsalt:
 | `discussion` | 分享信息，或发表看法、发起讨论 |
 | `question` | 提问、求助、求推荐 |
 
-对话模型拿到的是 Jev 判断出的最可能类型：如果这个类型在 `interject` 中列出，模型会得到正面的回应规范（怎样接得好）；如果没有列出（消息是靠别的类型的规则通过的），模型会得到偏谨慎的规范，大多会放弃发言。例如设置 `question: 0` 后，擅长领域内的闲聊也会进入生成，但模型会被告知「这只是闲聊，并不需要你回应」。
+对话模型拿到的是决策模型判断出的最可能类型：如果这个类型在 `interject` 中列出，模型会得到正面的回应规范（怎样接得好）；如果没有列出（消息是靠别的类型的规则通过的），模型会得到偏谨慎的规范，大多会放弃发言。例如设置 `question: 0` 后，擅长领域内的闲聊也会进入生成，但模型会被告知「这只是闲聊，并不需要你回应」。
 
 #### 时机与静音
 
 | 选项 | 默认值 | 说明 |
 | --- | --- | --- |
-| `auto.stateMessages` | `8` | 提供给 Jev 的上下文消息条数 |
+| `auto.stateMessages` | `8` | 提供给决策模型 的上下文消息条数 |
 | `auto.debounceMs` | `3000` | 群里安静多久后才做决定（毫秒） |
 | `auto.maxBurstWaitMs` | `10000` | 刷屏时最多等待多久后做决定（毫秒） |
 | `auto.muteOnComplaintMs` | `21600000`（6 小时） | 有人嫌机器人烦时，自动模式在该群静音的时长 |

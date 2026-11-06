@@ -53,7 +53,12 @@ ctx.install(ChatsaltPlugin, {
           enabled: true,
           shadow: process.env.AUTO_SHADOW !== 'false',
           groups: process.env.AUTO_GROUPS.split(',').map(Number),
-          jev: { apiKey: process.env.TYPESAFE_API_KEY, baseURL: process.env.TYPESAFE_BASE_URL },
+          decisions: {
+            type: 'systemone' as const,
+            apiKey: process.env.TYPESAFE_API_KEY,
+            model: process.env.TYPESAFE_MODEL ?? 'jev-1.14.0',
+            baseURL: process.env.TYPESAFE_BASE_URL,
+          },
           names: ['纱露朵', '盐', 'salt', 'bot', '机器人'],
           expertise:
             'maimai DX (舞萌) rhythm game: charts, difficulty constants, rating, song unlocks, play technique.',

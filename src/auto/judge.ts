@@ -1,6 +1,6 @@
-import type { ChoiceAnswer, JevQuestion, NoulAnswer, ScoreAnswer, SystemOneResponse } from './jev';
+import type { ChoiceAnswer, DecisionClient, DecisionQuestion, DecisionResponse, ScoreAnswer } from './decision-types';
 
-/** A group message reduced to what Jev needs. */
+/** A group message reduced to what the decision model needs. */
 export interface BufferedMessage {
   seq: number;
   senderId: number;
@@ -32,7 +32,7 @@ function clip(text: string): string {
   return text.length > MAX_TEXT_LENGTH ? `${text.slice(0, MAX_TEXT_LENGTH)}…` : text;
 }
 
-export function buildJevState(
+export function buildJudgeInput(
   profile: JudgeProfile,
   context: BufferedMessage[],
   target: BufferedMessage,
@@ -58,7 +58,7 @@ export function buildJevState(
 /**
  * What a message is for, named by the social response it calls for rather than by any community's
  * vocabulary; domain slang comes from {@link IntentHints}. `chatter` is the fallback and comes first, so
- * Jev's lean towards the first option errs on the quiet side.
+ * the model's lean towards the first option errs on the quiet side.
  */
 export const INTENTS = ['chatter', 'share_setback', 'share_success', 'discussion', 'question'] as const;
 export type Intent = (typeof INTENTS)[number];
@@ -96,12 +96,12 @@ function intentCriteria(hints: IntentHints): Record<Intent, string> {
 }
 
 /**
- * Questions follow TypeSafe's guidance: English instructions, one judgment each, boundary cases spelled
- * out in the criteria. In Choice questions the option leading to silence comes first, so Jev's bias
+ * Questions use shared guidance: English instructions, one judgment each, boundary cases spelled
+ * out in the criteria. In Choice questions the option leading to silence comes first, so the model's bias
  * towards the first option errs on the quiet side.
  */
-export function buildJevQuestions(flags: JudgeFlags, hints: IntentHints = {}): Record<string, JevQuestion> {
-  const questions: Record<string, JevQuestion> = {
+export function buildJudgeQuestions(flags: JudgeFlags, hints: IntentHints = {}): Record<string, DecisionQuestion> {
+  const questions: Record<string, DecisionQuestion> = {
     addressee: {
       type: 'choice',
       instructions: 'Who is `target_message.text` directed at?',
@@ -134,17 +134,17 @@ export function buildJevQuestions(flags: JudgeFlags, hints: IntentHints = {}): R
       criteria: intentCriteria(hints),
     },
     private_exchange: {
-      type: 'noul',
+      type: 'predicate',
       instructions:
         'Are `target_message` and the messages right before it in `recent_messages` a back-and-forth between specific people that an outsider would be interrupting?',
     },
     sensitive: {
-      type: 'noul',
+      type: 'predicate',
       instructions:
         'Is `target_message` or the conversation in `recent_messages` about any of `bot.avoid_topics`, an argument between members, or someone in real distress?',
     },
     wants_bot_quiet: {
-      type: 'noul',
+      type: 'predicate',
       instructions:
         'Does `target_message.text` tell the bot to stop talking, complain about the bot, or show annoyance at the bot?',
       criteria: {
@@ -155,7 +155,7 @@ export function buildJevQuestions(flags: JudgeFlags, hints: IntentHints = {}): R
   };
   if (flags.botSpokeRecently) {
     questions.responds_to_bot = {
-      type: 'noul',
+      type: 'predicate',
       instructions:
         'Is `target_message.text` a direct reaction to the latest message from "the bot" in `recent_messages`?',
       criteria: {
@@ -179,18 +179,21 @@ export interface JudgeAnswers {
   respondsToBot?: number;
 }
 
-export function parseJevAnswers(response: SystemOneResponse): JudgeAnswers {
+export function parseJudgeAnswers(response: DecisionResponse): JudgeAnswers {
   const a = response.answers;
-  const noul = (key: string) => (a[key] as NoulAnswer | undefined)?.noul;
+  const probability = (key: string) => {
+    const answer = a[key];
+    return answer?.type === 'predicate' ? answer.probability : undefined;
+  };
   const required = (key: string) => {
-    const value = noul(key);
+    const value = probability(key);
     if (value === undefined) {
-      throw new Error(`Jev response is missing answer "${key}"`);
+      throw new Error(`Decision response is missing answer "${key}"`);
     }
     return value;
   };
   if (a.addressee?.type !== 'choice' || a.topic_fit?.type !== 'score' || a.intent?.type !== 'choice') {
-    throw new Error('Jev response is missing answer "addressee", "topic_fit" or "intent"');
+    throw new Error('Decision response is missing answer "addressee", "topic_fit" or "intent"');
   }
   return {
     model: response.model,
@@ -201,8 +204,24 @@ export function parseJevAnswers(response: SystemOneResponse): JudgeAnswers {
     privateExchange: required('private_exchange'),
     sensitive: required('sensitive'),
     wantsBotQuiet: required('wants_bot_quiet'),
-    respondsToBot: noul('responds_to_bot'),
+    respondsToBot: probability('responds_to_bot'),
   };
+}
+
+/** The single judgment entry point used by the scheduler, independent of provider. */
+export async function judgeMessage(
+  client: DecisionClient,
+  profile: JudgeProfile,
+  context: BufferedMessage[],
+  target: BufferedMessage,
+  flags: JudgeFlags,
+  hints: IntentHints = {},
+): Promise<JudgeAnswers> {
+  const response = await client.evaluate(
+    buildJudgeInput(profile, context, target, flags),
+    buildJudgeQuestions(flags, hints),
+  );
+  return parseJudgeAnswers(response);
 }
 
 export interface Thresholds {
@@ -230,7 +249,7 @@ export const defaultThresholds: Thresholds = {
 };
 
 /**
- * When the bot may interject on an intent: the minimum probability Jev must give it, and optionally a
+ * When the bot may interject on an intent: the minimum probability the decision model must give it, and optionally a
  * topic requirement replacing the global `thresholds.topicFit`. A bare number is the probability alone.
  */
 export type InterjectRule = number | { probability: number; topicFit?: number };
@@ -260,7 +279,7 @@ export type Verdict =
       action: 'reply';
       reason: ReplyReason;
       /**
-       * Jev's top intent for the message, which decides how the bot responds. It may differ from the intent
+       * the model's top intent for the message, which decides how the bot responds. It may differ from the intent
        * that passed the interject rules (say, with a rule's minimum set to 0), so the chat model is always
        * told what the message actually looks like, not what the rules assumed.
        */
@@ -278,7 +297,7 @@ function topIntent(answers: JudgeAnswers): Intent {
   return INTENTS.includes(choice) ? choice : 'chatter';
 }
 
-/** Pure decision over Jev's answers; rules change here without new Jev requests. */
+/** Pure decision over the model's answers; rules change here without new the decision model requests. */
 export function decide(answers: JudgeAnswers, flags: JudgeFlags, t: Thresholds, interject: InterjectRules): Verdict {
   const intent = topIntent(answers);
   const intentEnabled = interject[intent] !== undefined;

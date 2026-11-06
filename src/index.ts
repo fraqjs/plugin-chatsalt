@@ -6,7 +6,7 @@ import { createGithubTools as githubTools } from '@github-tools/sdk';
 
 import pkg from '../package.json';
 import { ActivityRegistry, summarizeMessage } from './activity';
-import { DEFAULT_JEV_BASE_URL, JevClient } from './auto/jev';
+import { DecisionsClient, type DecisionsOptions } from './auto/decisions';
 import {
   defaultInterjectRules,
   defaultThresholds,
@@ -90,14 +90,7 @@ export interface ChatsaltPluginOptions {
     enabled?: boolean;
     groups: number[];
     shadow?: boolean;
-    jev: {
-      apiKey: string;
-      model?: string;
-      /** API root ending in `/v1`; defaults to https://api.typesafe.ai/v1. */
-      baseURL?: string;
-      timeoutMs?: number;
-      maxRetries?: number;
-    };
+    decisions: DecisionsOptions;
     names: string[];
     expertise: string;
     avoidTopics?: string[];
@@ -269,12 +262,6 @@ export const ChatsaltPlugin = definePlugin({
     let autoExpertise = '';
     if (autoEnabled && options.auto) {
       const auto = options.auto;
-      if (!auto.jev?.apiKey) {
-        throw new Error('auto.jev.apiKey is required when auto mode is enabled.');
-      }
-      if (!auto.jev?.model) {
-        throw new Error('auto.jev.model is required when auto mode is enabled.');
-      }
       if (!auto.expertise?.trim()) {
         throw new Error('auto.expertise is required when auto mode is enabled.');
       }
@@ -314,15 +301,9 @@ export const ChatsaltPlugin = definePlugin({
       if (!Number.isInteger(interjectWithin) || interjectWithin < 1) {
         throw new Error('auto.interjectWithin must be a positive integer.');
       }
-      const jev = new JevClient({
-        apiKey: auto.jev.apiKey,
-        model: auto.jev.model,
-        baseURL: auto.jev.baseURL ?? DEFAULT_JEV_BASE_URL,
-        timeoutMs: auto.jev.timeoutMs ?? 5_000,
-        maxRetries: auto.jev.maxRetries ?? 2,
-      });
+      const decisions = new DecisionsClient(auto.decisions);
       autoScheduler = new AutoScheduler(
-        jev,
+        decisions,
         activity,
         ctx.logger,
         (selfId, message, reply) => runChat(selfId, message, reply),
@@ -348,7 +329,7 @@ export const ChatsaltPlugin = definePlugin({
         },
       );
       ctx.logger.info(
-        `Chatsalt auto mode enabled for ${auto.groups.length} group(s) with ${jev.model}${autoShadow ? ' (shadow)' : ''}`,
+        `Chatsalt auto mode enabled for ${auto.groups.length} group(s) with ${auto.decisions.type}/${decisions.model}${autoShadow ? ' (shadow)' : ''}`,
       );
     }
 

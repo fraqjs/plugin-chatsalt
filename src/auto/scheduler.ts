@@ -2,19 +2,17 @@ import type { Logger, milky } from '@fraqjs/fraq';
 
 import { type ActivityRegistry, type AutoDecisionRecord, type AutoOutcome, summarizeMessage } from '../activity';
 import { extractSenderName } from '../prompt';
-import type { JevClient } from './jev';
+import type { DecisionClient } from './decision-types';
 import {
   BOT_SPEAKER,
   type BufferedMessage,
-  buildJevQuestions,
-  buildJevState,
   decide,
   type Intent,
   type IntentHints,
   type InterjectRules,
   type JudgeFlags,
   type JudgeProfile,
-  parseJevAnswers,
+  judgeMessage,
   type ReplyReason,
   summarizeAnswers,
   type Thresholds,
@@ -77,7 +75,7 @@ interface GroupState {
 const REPLY_PRIORITY: ReplyReason[] = ['implicit_address', 'continuation', 'interjection'];
 
 function hasJudgeableText(text: string): boolean {
-  // Placeholders like [图片] and @mentions carry nothing Jev can judge on their own.
+  // Placeholders like [图片] and @mentions carry nothing the decision model can judge on their own.
   return (
     text
       .replace(/\[[^\]]*\]/g, '')
@@ -91,7 +89,7 @@ export class AutoScheduler {
   private readonly lowerNames: string[];
 
   constructor(
-    private readonly jev: JevClient,
+    private readonly decisions: DecisionClient,
     private readonly activity: ActivityRegistry,
     private readonly logger: Logger,
     private readonly run: AutoRunner,
@@ -234,11 +232,14 @@ export class AutoScheduler {
     };
     const startedAt = performance.now();
     try {
-      const response = await this.jev.systemOne(
-        buildJevState(this.options.profile, context, target, flags),
-        buildJevQuestions(flags, this.options.intentHints),
+      const answers = await judgeMessage(
+        this.decisions,
+        this.options.profile,
+        context,
+        target,
+        flags,
+        this.options.intentHints,
       );
-      const answers = parseJevAnswers(response);
       const verdict = decide(answers, flags, this.options.thresholds, this.options.interject);
       const record = this.activity.recordAutoDecision({
         ...base,
@@ -252,7 +253,10 @@ export class AutoScheduler {
       return { message, record, verdict };
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
-      this.logger.warn(`Jev judgment failed for message ${message.message_seq} in group ${message.peer_id}`, error);
+      this.logger.warn(
+        `Decision judgment failed for message ${message.message_seq} in group ${message.peer_id}`,
+        error,
+      );
       this.activity.recordAutoDecision({
         ...base,
         verdict: 'error',
